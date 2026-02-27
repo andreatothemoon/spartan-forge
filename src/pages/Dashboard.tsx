@@ -16,7 +16,6 @@ import { format, addDays, startOfWeek, endOfWeek, isWithinInterval, parseISO, di
 import { generatePlan } from '@/lib/planGenerator';
 import { exportSessionsToJSON, exportSessionsToFITStub, downloadFile } from '@/lib/exportUtils';
 import { SESSION_TYPE_LABELS, secPerKmToDisplay } from '@/lib/paceUtils';
-import FullPlanView from '@/components/dashboard/FullPlanView';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Session = Tables<'sessions'>;
@@ -407,17 +406,6 @@ export default function Dashboard() {
             </Card>
         </div>
 
-        {/* Full Plan View */}
-        {plan && sessions.length > 0 && (
-          <div className="space-y-3">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Full Plan Overview</h2>
-            <FullPlanView
-              sessions={sessions}
-              planStartDate={plan.start_date}
-              onToggleComplete={toggleComplete}
-            />
-          </div>
-        )}
       </div>
       </div>
     </AppLayout>
