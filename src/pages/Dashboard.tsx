@@ -16,6 +16,7 @@ import { format, addDays, startOfWeek, endOfWeek, isWithinInterval, parseISO, di
 import { generatePlan } from '@/lib/planGenerator';
 import { exportSessionsToJSON, exportSessionsToFITStub, downloadFile } from '@/lib/exportUtils';
 import { SESSION_TYPE_LABELS, secPerKmToDisplay } from '@/lib/paceUtils';
+import AICoachPanel from '@/components/dashboard/AICoachPanel';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Session = Tables<'sessions'>;
@@ -380,6 +381,8 @@ export default function Dashboard() {
                 </Button>
               </CardContent>
             </Card>
+
+            <AICoachPanel plan={plan} sessions={sessions} />
 
             <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground pt-2">Plan Status</h2>
             <Card className="border-border/50">
