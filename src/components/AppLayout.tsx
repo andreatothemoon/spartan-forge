@@ -2,12 +2,13 @@ import { ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Shield, LayoutDashboard, Calendar, Settings, LogOut } from 'lucide-react';
+import { Shield, LayoutDashboard, Calendar, Settings, LogOut, BarChart3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const NAV_ITEMS = [
   { to: '/dashboard', label: 'Mission Control', icon: LayoutDashboard },
   { to: '/calendar', label: 'Plan Calendar', icon: Calendar },
+  { to: '/analytics', label: 'Analytics', icon: BarChart3 },
   { to: '/onboarding', label: 'Settings', icon: Settings },
 ];
 

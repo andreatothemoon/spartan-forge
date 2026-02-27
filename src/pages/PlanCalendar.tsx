@@ -8,7 +8,6 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { format, addWeeks, subWeeks, addMonths, subMonths, startOfWeek, startOfMonth } from 'date-fns';
 import WeeklyView from '@/components/calendar/WeeklyView';
 import MonthlyView from '@/components/calendar/MonthlyView';
-import TrainingVolumeChart from '@/components/calendar/TrainingVolumeChart';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Session = Tables<'sessions'>;
@@ -97,11 +96,6 @@ export default function PlanCalendar() {
           <WeeklyView sessions={sessions} weekStart={weekStart} />
         ) : (
           <MonthlyView sessions={sessions} currentMonth={monthStart} />
-        )}
-
-        {/* Analytics */}
-        {!loading && sessions.length > 0 && (
-          <TrainingVolumeChart sessions={sessions} />
         )}
       </div>
     </AppLayout>
