@@ -1,36 +1,27 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import AppLayout from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { format, addWeeks, subWeeks, startOfWeek, addDays, parseISO, isSameDay } from 'date-fns';
-import { SESSION_TYPE_LABELS } from '@/lib/paceUtils';
+import { format, addWeeks, subWeeks, addMonths, subMonths, startOfWeek, startOfMonth } from 'date-fns';
+import WeeklyView from '@/components/calendar/WeeklyView';
+import MonthlyView from '@/components/calendar/MonthlyView';
+import TrainingVolumeChart from '@/components/calendar/TrainingVolumeChart';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Session = Tables<'sessions'>;
 
-const SESSION_DOT_COLORS: Record<string, string> = {
-  easy: 'bg-session-easy',
-  interval: 'bg-session-interval',
-  tempo: 'bg-session-tempo',
-  long: 'bg-session-long',
-  recovery: 'bg-session-recovery',
-  race_sim: 'bg-session-race-sim',
-  strength: 'bg-session-strength',
-};
-
 export default function PlanCalendar() {
   const { user } = useAuth();
-  const navigate = useNavigate();
   const [sessions, setSessions] = useState<Session[]>([]);
-  const [weekOffset, setWeekOffset] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [view, setView] = useState<'week' | 'month'>('week');
+  const [currentDate, setCurrentDate] = useState(new Date());
 
-  const currentWeekStart = addWeeks(startOfWeek(new Date(), { weekStartsOn: 1 }), weekOffset);
+  const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
+  const monthStart = startOfMonth(currentDate);
 
   const loadSessions = useCallback(async () => {
     if (!user) return;
@@ -55,73 +46,62 @@ export default function PlanCalendar() {
 
   useEffect(() => { loadSessions(); }, [loadSessions]);
 
-  const days = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
+  function navigatePrev() {
+    setCurrentDate(d => view === 'week' ? subWeeks(d, 1) : subMonths(d, 1));
+  }
+
+  function navigateNext() {
+    setCurrentDate(d => view === 'week' ? addWeeks(d, 1) : addMonths(d, 1));
+  }
+
+  function navigateToday() {
+    setCurrentDate(new Date());
+  }
+
+  const headerLabel = view === 'week'
+    ? `${format(weekStart, 'MMM d')} — ${format(addWeeks(weekStart, 1), 'MMM d, yyyy')}`
+    : format(monthStart, 'MMMM yyyy');
 
   return (
     <AppLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <h1 className="text-2xl font-bold tracking-tight">Plan Calendar</h1>
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={() => setWeekOffset(w => w - 1)}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => setWeekOffset(0)} className="font-mono text-xs">
-              Today
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => setWeekOffset(w => w + 1)}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
+          <Tabs value={view} onValueChange={(v) => setView(v as 'week' | 'month')}>
+            <TabsList className="h-8">
+              <TabsTrigger value="week" className="text-xs px-3 h-6">Week</TabsTrigger>
+              <TabsTrigger value="month" className="text-xs px-3 h-6">Month</TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
 
-        <p className="text-sm text-muted-foreground font-mono">
-          {format(currentWeekStart, 'MMM d')} — {format(addDays(currentWeekStart, 6), 'MMM d, yyyy')}
-        </p>
+        {/* Navigation */}
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" onClick={navigatePrev}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="sm" onClick={navigateToday} className="font-mono text-xs">
+            Today
+          </Button>
+          <Button variant="ghost" size="sm" onClick={navigateNext}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+          <span className="text-sm text-muted-foreground font-mono ml-2">{headerLabel}</span>
+        </div>
 
+        {/* Calendar */}
         {loading ? (
           <div className="text-center py-20 text-muted-foreground font-mono text-sm">LOADING...</div>
+        ) : view === 'week' ? (
+          <WeeklyView sessions={sessions} weekStart={weekStart} />
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-7 gap-2">
-            {days.map(day => {
-              const daySessions = sessions.filter(s => isSameDay(parseISO(s.session_date), day));
-              const isToday = isSameDay(day, new Date());
+          <MonthlyView sessions={sessions} currentMonth={monthStart} />
+        )}
 
-              return (
-                <div key={day.toISOString()} className="space-y-1">
-                  <div className={`text-xs font-mono text-center py-1 rounded-t ${isToday ? 'bg-primary/10 text-primary' : 'text-muted-foreground'}`}>
-                    <div className="font-semibold">{format(day, 'EEE')}</div>
-                    <div>{format(day, 'd')}</div>
-                  </div>
-                  <div className="min-h-[120px] space-y-1">
-                    {daySessions.length === 0 ? (
-                      <div className="h-full flex items-center justify-center">
-                        <span className="text-[10px] text-muted-foreground/40">REST</span>
-                      </div>
-                    ) : (
-                      daySessions.map(s => (
-                        <Card
-                          key={s.id}
-                          className={`border-border/50 cursor-pointer hover:border-primary/40 transition-all ${s.completed ? 'opacity-60' : ''}`}
-                          onClick={() => navigate(`/session/${s.id}`)}
-                        >
-                          <CardContent className="p-2">
-                            <div className="flex items-center gap-1 mb-1">
-                              <div className={`w-1.5 h-1.5 rounded-full ${SESSION_DOT_COLORS[s.session_type] || 'bg-muted-foreground'}`} />
-                              <span className="text-[10px] font-medium truncate">{s.title}</span>
-                            </div>
-                            <Badge variant="outline" className="text-[8px] px-1 py-0">
-                              {SESSION_TYPE_LABELS[s.session_type] || s.session_type}
-                            </Badge>
-                          </CardContent>
-                        </Card>
-                      ))
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+        {/* Analytics */}
+        {!loading && sessions.length > 0 && (
+          <TrainingVolumeChart sessions={sessions} />
         )}
       </div>
     </AppLayout>
