@@ -12,9 +12,9 @@ import {
   Zap, Download, Calendar, CheckCircle, Circle, Clock,
   TrendingUp, BarChart3, RefreshCw, FileJson,
 } from 'lucide-react';
-import { format, addDays, startOfWeek, endOfWeek, isWithinInterval, parseISO, differenceInDays } from 'date-fns';
+import { format, startOfWeek, endOfWeek, isWithinInterval, parseISO, differenceInDays } from 'date-fns';
 import { generatePlan } from '@/lib/planGenerator';
-import { exportSessionsToJSON, exportSessionsToFITStub, downloadFile } from '@/lib/exportUtils';
+import { downloadFile } from '@/lib/exportUtils';
 import { SESSION_TYPE_LABELS, secPerKmToDisplay } from '@/lib/paceUtils';
 import AICoachPanel from '@/components/dashboard/AICoachPanel';
 import type { Tables } from '@/integrations/supabase/types';
@@ -176,52 +176,42 @@ export default function Dashboard() {
     if (!plan) return;
     setExporting(true);
     try {
-      const rangeEnd = range === 'month' ? addDays(today, 30) : addDays(today, 7);
-      const exportSessions = sessions.filter(s => {
-        const d = parseISO(s.session_date);
-        return d >= today && d <= rangeEnd;
-      });
-
-      // Load steps for each session
-      const sessionsWithSteps = await Promise.all(
-        exportSessions.map(async (s) => {
-          const { data: steps } = await supabase
-            .from('session_steps')
-            .select('*')
-            .eq('session_id', s.id)
-            .order('step_order', { ascending: true });
-          return { ...s, steps: steps || [] };
-        })
-      );
-
-      if (sessionsWithSteps.length === 0) {
-        toast.info('No sessions in the next 7 days to export');
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      if (!accessToken) {
+        toast.error('You must be logged in to export');
         setExporting(false);
         return;
       }
 
-      const content = type === 'json'
-        ? exportSessionsToJSON(sessionsWithSteps)
-        : exportSessionsToFITStub(sessionsWithSteps);
+      const resp = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/export-workouts`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({ planId: plan.id, range, exportType: type }),
+        }
+      );
 
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ error: 'Export failed' }));
+        throw new Error(err.error || 'Export failed');
+      }
+
+      const content = await resp.text();
+      const disposition = resp.headers.get('Content-Disposition');
+      const filenameMatch = disposition?.match(/filename="(.+)"/);
       const rangeLabel = range === 'month' ? 'month' : 'week';
-      const filename = type === 'json'
-        ? `spartan-plan-${rangeLabel}-${format(today, 'yyyy-MM-dd')}.json`
-        : `spartan-workouts-${rangeLabel}-${format(today, 'yyyy-MM-dd')}.fit.json`;
+      const filename = filenameMatch?.[1] ||
+        (type === 'json'
+          ? `spartan-plan-${rangeLabel}-${format(today, 'yyyy-MM-dd')}.json`
+          : `spartan-workouts-${rangeLabel}-${format(today, 'yyyy-MM-dd')}.fit.json`);
 
       downloadFile(content, filename);
-
-      // Log export job
-      await supabase.from('export_jobs').insert({
-        user_id: user!.id,
-        plan_id: plan.id,
-        range_start: format(today, 'yyyy-MM-dd'),
-        range_end: format(rangeEnd, 'yyyy-MM-dd'),
-        export_type: type === 'json' ? 'JSON' : 'FIT',
-        status: 'done',
-      });
-
-      toast.success(`Exported ${sessionsWithSteps.length} sessions`);
+      toast.success('Export complete');
     } catch (err: any) {
       toast.error(err.message || 'Export failed');
     }
