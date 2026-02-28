@@ -3,6 +3,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import AppLayout from '@/components/AppLayout';
 import TrainingVolumeChart from '@/components/calendar/TrainingVolumeChart';
+import SessionTypeChart from '@/components/calendar/SessionTypeChart';
+import ComplianceTrendChart from '@/components/calendar/ComplianceTrendChart';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Session = Tables<'sessions'>;
@@ -51,7 +53,13 @@ export default function Analytics() {
             <p className="text-xs mt-1">Generate a plan to see analytics.</p>
           </div>
         ) : (
-          <TrainingVolumeChart sessions={sessions} />
+          <div className="space-y-6">
+            <TrainingVolumeChart sessions={sessions} />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <SessionTypeChart sessions={sessions} />
+              <ComplianceTrendChart sessions={sessions} />
+            </div>
+          </div>
         )}
       </div>
     </AppLayout>
