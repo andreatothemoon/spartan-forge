@@ -172,14 +172,14 @@ export default function Dashboard() {
     setGenerating(false);
   }
 
-  async function handleExport(type: 'json' | 'fit') {
+  async function handleExport(type: 'json' | 'fit', range: 'week' | 'month' = 'week') {
     if (!plan) return;
     setExporting(true);
     try {
-      const next7 = addDays(today, 7);
+      const rangeEnd = range === 'month' ? addDays(today, 30) : addDays(today, 7);
       const exportSessions = sessions.filter(s => {
         const d = parseISO(s.session_date);
-        return d >= today && d <= next7;
+        return d >= today && d <= rangeEnd;
       });
 
       // Load steps for each session
@@ -204,9 +204,10 @@ export default function Dashboard() {
         ? exportSessionsToJSON(sessionsWithSteps)
         : exportSessionsToFITStub(sessionsWithSteps);
 
+      const rangeLabel = range === 'month' ? 'month' : 'week';
       const filename = type === 'json'
-        ? `spartan-plan-${format(today, 'yyyy-MM-dd')}.json`
-        : `spartan-workouts-${format(today, 'yyyy-MM-dd')}.fit.json`;
+        ? `spartan-plan-${rangeLabel}-${format(today, 'yyyy-MM-dd')}.json`
+        : `spartan-workouts-${rangeLabel}-${format(today, 'yyyy-MM-dd')}.fit.json`;
 
       downloadFile(content, filename);
 
@@ -215,7 +216,7 @@ export default function Dashboard() {
         user_id: user!.id,
         plan_id: plan.id,
         range_start: format(today, 'yyyy-MM-dd'),
-        range_end: format(next7, 'yyyy-MM-dd'),
+        range_end: format(rangeEnd, 'yyyy-MM-dd'),
         export_type: type === 'json' ? 'JSON' : 'FIT',
         status: 'done',
       });
@@ -357,28 +358,57 @@ export default function Dashboard() {
           <div className="space-y-3">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Export</h2>
             <Card className="border-border/50">
-              <CardContent className="py-4 px-4 space-y-3">
-                <p className="text-xs text-muted-foreground">Export the next 7 days of workouts</p>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="w-full justify-start"
-                  onClick={() => handleExport('fit')}
-                  disabled={exporting || !plan}
-                >
-                  <Download className="h-3.5 w-3.5 mr-2" />
-                  Garmin FIT (structured)
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="w-full justify-start"
-                  onClick={() => handleExport('json')}
-                  disabled={exporting || !plan}
-                >
-                  <FileJson className="h-3.5 w-3.5 mr-2" />
-                  JSON Export
-                </Button>
+              <CardContent className="py-4 px-4 space-y-4">
+                <div>
+                  <p className="text-xs text-muted-foreground mb-2">Next 7 days</p>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="flex-1 justify-start"
+                      onClick={() => handleExport('fit', 'week')}
+                      disabled={exporting || !plan}
+                    >
+                      <Download className="h-3.5 w-3.5 mr-2" />
+                      FIT
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="flex-1 justify-start"
+                      onClick={() => handleExport('json', 'week')}
+                      disabled={exporting || !plan}
+                    >
+                      <FileJson className="h-3.5 w-3.5 mr-2" />
+                      JSON
+                    </Button>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground mb-2">Next 30 days</p>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="flex-1 justify-start"
+                      onClick={() => handleExport('fit', 'month')}
+                      disabled={exporting || !plan}
+                    >
+                      <Download className="h-3.5 w-3.5 mr-2" />
+                      FIT
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="flex-1 justify-start"
+                      onClick={() => handleExport('json', 'month')}
+                      disabled={exporting || !plan}
+                    >
+                      <FileJson className="h-3.5 w-3.5 mr-2" />
+                      JSON
+                    </Button>
+                  </div>
+                </div>
               </CardContent>
             </Card>
 
