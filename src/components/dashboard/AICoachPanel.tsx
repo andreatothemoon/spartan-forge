@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Brain, Loader2, Sparkles } from 'lucide-react';
@@ -30,11 +31,18 @@ export default function AICoachPanel({ plan, sessions }: AICoachPanelProps) {
     setAnalysis('');
 
     try {
+      const { data: { session: authSession } } = await supabase.auth.getSession();
+      if (!authSession?.access_token) {
+        toast.error('Please sign in to use AI coaching');
+        setLoading(false);
+        return;
+      }
+
       const resp = await fetch(COACH_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          Authorization: `Bearer ${authSession.access_token}`,
         },
         body: JSON.stringify({ sessions, plan }),
       });
