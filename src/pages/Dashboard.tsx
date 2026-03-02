@@ -6,19 +6,18 @@ import AppLayout from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import {
-  Zap, Download, Calendar, CheckCircle, Circle, Clock,
-  TrendingUp, BarChart3, RefreshCw, FileJson, ArrowRight,
-  Target, Play,
+  Zap, Calendar, TrendingUp, RefreshCw, ArrowRight,
+  Target, Play, ChevronRight,
 } from 'lucide-react';
 import { format, startOfWeek, endOfWeek, isWithinInterval, parseISO, differenceInDays } from 'date-fns';
 import { generatePlan } from '@/lib/planGenerator';
-import { downloadFile } from '@/lib/exportUtils';
 import { SESSION_TYPE_LABELS } from '@/lib/paceUtils';
 import AICoachPanel from '@/components/dashboard/AICoachPanel';
+import PlanOverviewWidget from '@/components/dashboard/PlanOverviewWidget';
+import WorkoutOfTheDay from '@/components/dashboard/WorkoutOfTheDay';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Session = Tables<'sessions'>;
@@ -41,7 +40,6 @@ export default function Dashboard() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
-  const [exporting, setExporting] = useState(false);
 
   const today = new Date();
   const weekStart = startOfWeek(today, { weekStartsOn: 1 });
@@ -79,16 +77,16 @@ export default function Dashboard() {
   const completedThisWeek = weekSessions.filter(s => s.completed).length;
   const totalThisWeek = weekSessions.length;
 
-  const upcomingSessions = sessions
-    .filter(s => !s.completed && parseISO(s.session_date) >= today)
-    .slice(0, 5);
-
   const pastSessions = sessions.filter(s => parseISO(s.session_date) < today);
   const completedPast = pastSessions.filter(s => s.completed).length;
   const compliancePct = pastSessions.length > 0 ? Math.round(completedPast / pastSessions.length * 100) : 0;
 
   const raceDate = plan ? parseISO(plan.end_date) : parseISO('2026-09-26');
   const daysToRace = differenceInDays(raceDate, today);
+
+  const upcomingSessions = sessions
+    .filter(s => !s.completed && parseISO(s.session_date) >= today)
+    .slice(0, 4);
 
   async function handleGenerate() {
     if (!user) return;
@@ -174,52 +172,6 @@ export default function Dashboard() {
     setGenerating(false);
   }
 
-  async function handleExport(type: 'json' | 'fit', range: 'week' | 'month' = 'week') {
-    if (!plan) return;
-    setExporting(true);
-    try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData?.session?.access_token;
-      if (!accessToken) {
-        toast.error('You must be logged in to export');
-        setExporting(false);
-        return;
-      }
-
-      const resp = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/export-workouts`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify({ planId: plan.id, range, exportType: type }),
-        }
-      );
-
-      if (!resp.ok) {
-        const err = await resp.json().catch(() => ({ error: 'Export failed' }));
-        throw new Error(err.error || 'Export failed');
-      }
-
-      const content = await resp.text();
-      const disposition = resp.headers.get('Content-Disposition');
-      const filenameMatch = disposition?.match(/filename="(.+)"/);
-      const rangeLabel = range === 'month' ? 'month' : 'week';
-      const filename = filenameMatch?.[1] ||
-        (type === 'json'
-          ? `spartan-plan-${rangeLabel}-${format(today, 'yyyy-MM-dd')}.json`
-          : `spartan-workouts-${rangeLabel}-${format(today, 'yyyy-MM-dd')}.fit.json`);
-
-      downloadFile(content, filename);
-      toast.success('Export complete');
-    } catch (err: any) {
-      toast.error(err.message || 'Export failed');
-    }
-    setExporting(false);
-  }
-
   async function toggleComplete(session: Session) {
     await supabase.from('sessions').update({ completed: !session.completed }).eq('id', session.id);
     setSessions(prev => prev.map(s => s.id === session.id ? { ...s, completed: !s.completed } : s));
@@ -238,251 +190,166 @@ export default function Dashboard() {
 
   return (
     <AppLayout>
-      <div className="space-y-8">
+      <div className="space-y-6 max-w-3xl mx-auto">
         {/* Hero Header */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex flex-col sm:flex-row sm:items-end justify-between gap-6"
+          className="flex items-end justify-between gap-4"
         >
-          <div className="space-y-2">
-            <p className="text-sm text-muted-foreground font-medium">Welcome back</p>
+          <div className="space-y-1">
+            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Mission Control</p>
             <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground">
               {daysToRace > 0 ? (
-                <>
-                  <span className="text-primary">{daysToRace}</span> days to race
-                </>
+                <><span className="text-primary">{daysToRace}</span> days to race</>
               ) : 'Race Day 🔥'}
             </h1>
             {plan && (
               <p className="text-sm text-muted-foreground">
-                {plan.plan_name} · {format(parseISO(plan.start_date), 'MMM d')} → {format(parseISO(plan.end_date), 'MMM d, yyyy')}
+                {format(parseISO(plan.start_date), 'MMM d')} → {format(parseISO(plan.end_date), 'MMM d, yyyy')}
               </p>
             )}
           </div>
-          <Button onClick={handleGenerate} disabled={generating} size="lg" className="glow-primary rounded-xl px-6">
-            {generating ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Zap className="h-4 w-4 mr-2" />}
-            {plan ? 'Regenerate Plan' : 'Generate Plan'}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleGenerate}
+            disabled={generating}
+            className="text-muted-foreground hover:text-foreground shrink-0"
+          >
+            {generating ? <RefreshCw className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Zap className="h-3.5 w-3.5 mr-1.5" />}
+            {plan ? 'Regenerate' : 'Generate'}
           </Button>
         </motion.div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard
-            icon={<Calendar className="h-4 w-4" />}
-            label="This Week"
-            value={`${completedThisWeek}/${totalThisWeek}`}
-            detail={totalThisWeek > 0 ? `${Math.round(completedThisWeek / totalThisWeek * 100)}% done` : 'No sessions'}
-            delay={0}
-          />
-          <StatCard
-            icon={<TrendingUp className="h-4 w-4" />}
-            label="Total Sessions"
-            value={sessions.length.toString()}
-            detail={`${completedPast} completed`}
-            delay={0.05}
-          />
-          <StatCard
-            icon={<Target className="h-4 w-4" />}
-            label="Compliance"
-            value={pastSessions.length > 0 ? `${compliancePct}%` : '—'}
-            detail={pastSessions.length > 0 ? `${completedPast}/${pastSessions.length} sessions` : 'No data yet'}
-            delay={0.1}
-            progress={pastSessions.length > 0 ? compliancePct : undefined}
-          />
-          <StatCard
-            icon={<Clock className="h-4 w-4" />}
-            label="Race Countdown"
-            value={`${daysToRace}d`}
-            detail={format(raceDate, 'EEEE, MMM d')}
-            delay={0.15}
-            highlight
-          />
+        {/* Plan Overview Widget */}
+        {plan && <PlanOverviewWidget plan={plan} sessions={sessions} />}
+
+        {/* Week Stats Strip */}
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }} className="grid grid-cols-3 gap-3">
+          <MiniStat icon={<Calendar className="h-3.5 w-3.5" />} label="This Week" value={`${completedThisWeek}/${totalThisWeek}`} />
+          <MiniStat icon={<TrendingUp className="h-3.5 w-3.5" />} label="Compliance" value={pastSessions.length > 0 ? `${compliancePct}%` : '—'} />
+          <MiniStat icon={<Target className="h-3.5 w-3.5" />} label="Completed" value={`${completedPast}`} />
+        </motion.div>
+
+        {/* Workout of the Day */}
+        <div>
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Workout of the Day</h2>
+          <WorkoutOfTheDay sessions={sessions} onToggleComplete={toggleComplete} />
         </div>
 
-        {/* Main Content Grid */}
-        <div className="grid lg:grid-cols-5 gap-6">
-          {/* Upcoming Sessions - takes 3 cols */}
-          <div className="lg:col-span-3 space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-foreground">Upcoming Workouts</h2>
-              <Button variant="ghost" size="sm" onClick={() => navigate('/calendar')} className="text-muted-foreground hover:text-primary gap-1">
-                View all <ArrowRight className="h-3.5 w-3.5" />
+        {/* AI Coach */}
+        <div>
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">AI Coach</h2>
+          <AICoachPanel plan={plan} sessions={sessions} />
+        </div>
+
+        {/* Upcoming Sessions */}
+        {upcomingSessions.length > 0 && (
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Coming Up</h2>
+              <Button variant="ghost" size="sm" onClick={() => navigate('/calendar')} className="text-xs text-muted-foreground hover:text-primary gap-1 h-7">
+                View Plan <ChevronRight className="h-3 w-3" />
               </Button>
             </div>
-            {upcomingSessions.length === 0 ? (
-              <Card className="border-dashed border-border/50">
-                <CardContent className="py-16 text-center space-y-3">
-                  <Play className="h-10 w-10 text-muted-foreground/30 mx-auto" />
-                  <div>
-                    <p className="text-muted-foreground font-medium">No upcoming sessions</p>
-                    <p className="text-muted-foreground/60 text-sm mt-1">Generate a plan to get started</p>
-                  </div>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-2">
-                {upcomingSessions.map((s, i) => (
-                  <motion.div key={s.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}>
-                    <Card
-                      className="border-border/30 hover:border-primary/20 hover:bg-card/80 transition-all cursor-pointer group"
-                      onClick={() => navigate(`/session/${s.id}`)}
-                    >
-                      <CardContent className="py-4 px-5 flex items-center gap-4">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); toggleComplete(s); }}
-                          className="shrink-0"
-                        >
-                          {s.completed
-                            ? <CheckCircle className="h-5 w-5 text-success" />
-                            : <Circle className="h-5 w-5 text-border hover:text-primary transition-colors" />
-                          }
-                        </button>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2.5 mb-1">
-                            <span className="font-medium text-sm text-foreground truncate">{s.title}</span>
-                            <Badge variant="outline" className={`text-[10px] px-2 py-0.5 rounded-md font-medium ${SESSION_COLORS[s.session_type] || ''}`}>
-                              {SESSION_TYPE_LABELS[s.session_type] || s.session_type}
-                            </Badge>
-                          </div>
-                          <p className="text-xs text-muted-foreground">
-                            {format(parseISO(s.session_date), 'EEEE, MMM d')}
-                          </p>
+            <div className="space-y-1.5">
+              {upcomingSessions.map((s, i) => (
+                <motion.div key={s.id} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 + i * 0.03 }}>
+                  <Card
+                    className="border-border/20 hover:border-primary/20 transition-all cursor-pointer group"
+                    onClick={() => navigate(`/session/${s.id}`)}
+                  >
+                    <CardContent className="py-3 px-4 flex items-center gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <span className="font-medium text-sm text-foreground truncate">{s.title}</span>
+                          <Badge variant="outline" className={`text-[10px] px-1.5 py-0 rounded font-medium ${SESSION_COLORS[s.session_type] || ''}`}>
+                            {SESSION_TYPE_LABELS[s.session_type] || s.session_type}
+                          </Badge>
                         </div>
-                        <ArrowRight className="h-4 w-4 text-muted-foreground/30 group-hover:text-primary/60 group-hover:translate-x-0.5 transition-all" />
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Right Sidebar - takes 2 cols */}
-          <div className="lg:col-span-2 space-y-4">
-            {/* Quick Export */}
-            <div className="space-y-3">
-              <h2 className="text-lg font-semibold text-foreground">Export Workouts</h2>
-              <Card className="border-border/30">
-                <CardContent className="py-5 px-5 space-y-5">
-                  <ExportRow
-                    label="Next 7 days"
-                    onFit={() => handleExport('fit', 'week')}
-                    onJson={() => handleExport('json', 'week')}
-                    disabled={exporting || !plan}
-                  />
-                  <ExportRow
-                    label="Next 30 days"
-                    onFit={() => handleExport('fit', 'month')}
-                    onJson={() => handleExport('json', 'month')}
-                    disabled={exporting || !plan}
-                  />
-                </CardContent>
-              </Card>
+                        <p className="text-[11px] text-muted-foreground">{format(parseISO(s.session_date), 'EEE, MMM d')}</p>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground/30 group-hover:text-primary/60 transition-colors" />
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ))}
             </div>
+          </div>
+        )}
 
-            <AICoachPanel plan={plan} sessions={sessions} />
+        {/* Quick Links */}
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.25 }} className="grid grid-cols-2 gap-3">
+          <Card
+            className="border-border/20 hover:border-primary/20 transition-all cursor-pointer group"
+            onClick={() => navigate('/calendar')}
+          >
+            <CardContent className="py-4 px-4 flex items-center gap-3">
+              <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/15 transition-colors">
+                <Calendar className="h-4 w-4 text-primary" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-foreground">Plan Calendar</p>
+                <p className="text-[11px] text-muted-foreground">View full schedule</p>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground/30 group-hover:text-primary/60 transition-colors" />
+            </CardContent>
+          </Card>
+          <Card
+            className="border-border/20 hover:border-primary/20 transition-all cursor-pointer group"
+            onClick={() => navigate('/analytics')}
+          >
+            <CardContent className="py-4 px-4 flex items-center gap-3">
+              <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/15 transition-colors">
+                <TrendingUp className="h-4 w-4 text-primary" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-foreground">Analytics</p>
+                <p className="text-[11px] text-muted-foreground">Training insights</p>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground/30 group-hover:text-primary/60 transition-colors" />
+            </CardContent>
+          </Card>
+        </motion.div>
 
-            {/* Plan Info */}
-            {plan && (
-              <Card className="border-border/30 overflow-hidden">
-                <div className="h-1 bg-gradient-to-r from-primary/60 to-primary/20" />
-                <CardContent className="py-5 px-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-semibold text-foreground">Plan Status</h3>
-                    <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/20 font-medium">
+        {/* Plan Status footer */}
+        {plan && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}>
+            <Card className="border-border/20">
+              <CardContent className="py-4 px-5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="h-2 w-2 rounded-full bg-success animate-pulse" />
+                    <span className="text-xs text-muted-foreground">Plan Active</span>
+                  </div>
+                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                    <span>{plan.plan_name}</span>
+                    <Badge variant="outline" className="text-[10px] bg-primary/5 text-primary border-primary/15">
                       {plan.status}
                     </Badge>
                   </div>
-                  <div className="space-y-2.5 text-xs">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Plan</span>
-                      <span className="text-foreground font-medium">{plan.plan_name}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Period</span>
-                      <span className="text-foreground font-mono text-[11px]">
-                        {format(parseISO(plan.start_date), 'MMM d')} → {format(parseISO(plan.end_date), 'MMM d')}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Sessions</span>
-                      <span className="text-foreground font-mono text-[11px]">{sessions.length} total</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        </div>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
       </div>
     </AppLayout>
   );
 }
 
-/* ─── Sub-components ─── */
-
-function StatCard({ icon, label, value, detail, delay, highlight, progress }: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  detail: string;
-  delay: number;
-  highlight?: boolean;
-  progress?: number;
-}) {
+/* ─── Mini Stat ─── */
+function MiniStat({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
-    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay }}>
-      <Card className="border-border/30 hover:border-border/50 transition-colors">
-        <CardContent className="pt-5 pb-4 px-5">
-          <div className="flex items-center gap-2 text-muted-foreground text-xs mb-3">
-            {icon}
-            <span className="font-medium">{label}</span>
-          </div>
-          <p className={`text-2xl font-bold tracking-tight ${highlight ? 'text-primary' : 'text-foreground'}`}>
-            {value}
-          </p>
-          {progress !== undefined && (
-            <Progress value={progress} className="h-1.5 mt-3 mb-1" />
-          )}
-          <p className="text-[11px] text-muted-foreground mt-1">{detail}</p>
-        </CardContent>
-      </Card>
-    </motion.div>
-  );
-}
-
-function ExportRow({ label, onFit, onJson, disabled }: {
-  label: string;
-  onFit: () => void;
-  onJson: () => void;
-  disabled: boolean;
-}) {
-  return (
-    <div>
-      <p className="text-xs text-muted-foreground mb-2 font-medium">{label}</p>
-      <div className="flex gap-2">
-        <Button
-          variant="secondary"
-          size="sm"
-          className="flex-1 rounded-lg"
-          onClick={onFit}
-          disabled={disabled}
-        >
-          <Download className="h-3.5 w-3.5 mr-1.5" />
-          FIT
-        </Button>
-        <Button
-          variant="secondary"
-          size="sm"
-          className="flex-1 rounded-lg"
-          onClick={onJson}
-          disabled={disabled}
-        >
-          <FileJson className="h-3.5 w-3.5 mr-1.5" />
-          JSON
-        </Button>
-      </div>
-    </div>
+    <Card className="border-border/20">
+      <CardContent className="py-3 px-4">
+        <div className="flex items-center gap-1.5 text-muted-foreground text-[10px] uppercase tracking-wider mb-1">
+          {icon}
+          <span>{label}</span>
+        </div>
+        <p className="text-lg font-bold text-foreground tracking-tight">{value}</p>
+      </CardContent>
+    </Card>
   );
 }
