@@ -11,10 +11,10 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
-import { User, Clock, Target, ChevronRight, ChevronLeft, Check } from 'lucide-react';
+import { User, Clock, Target, ChevronRight, ChevronLeft, Check, Download, FileJson, Watch } from 'lucide-react';
 import { DAYS, DAY_LABELS, secPerKmToDisplay, displayToSecPerKm, defaultPaceZones, defaultHrZones } from '@/lib/paceUtils';
 
-const STEPS = ['Athlete Profile', 'Availability', 'Race Goal'];
+const STEPS = ['Athlete Profile', 'Availability', 'Race Goal', 'Export'];
 
 export default function Onboarding() {
   const { user } = useAuth();
@@ -271,6 +271,8 @@ export default function Onboarding() {
               </CardContent>
             </Card>
           )}
+
+          {step === 3 && <ExportWorkoutsSection />}
         </motion.div>
 
         <div className="flex justify-between mt-6">
@@ -281,13 +283,113 @@ export default function Onboarding() {
             <Button onClick={() => setStep(s => s + 1)}>
               Next<ChevronRight className="h-4 w-4 ml-1" />
             </Button>
-          ) : (
+          ) : step === 2 ? (
             <Button onClick={saveAll} disabled={saving} className="glow-primary">
               {saving ? 'Saving...' : 'Save & Continue'}
             </Button>
-          )}
+          ) : null}
         </div>
       </div>
     </AppLayout>
+  );
+}
+
+/* ─── Export Workouts Section ─── */
+function ExportWorkoutsSection() {
+  const { user } = useAuth();
+  const [exporting, setExporting] = useState(false);
+
+  async function handleExport(exportType: 'json' | 'fit', range: 'week' | 'month') {
+    if (!user) return;
+    setExporting(true);
+    try {
+      const { data: plans } = await supabase
+        .from('plans')
+        .select('id')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (!plans || plans.length === 0) {
+        toast.error('No plan found. Generate a plan first.');
+        setExporting(false);
+        return;
+      }
+
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      if (!token) {
+        toast.error('Authentication error');
+        setExporting(false);
+        return;
+      }
+
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/export-workouts`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ planId: plans[0].id, range, exportType }),
+        }
+      );
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Export failed');
+      }
+
+      const blob = await res.blob();
+      const disposition = res.headers.get('Content-Disposition');
+      const filename = disposition?.match(/filename="(.+)"/)?.[1] || `export-${range}.${exportType === 'json' ? 'json' : 'fit.json'}`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success('Export downloaded');
+    } catch (err: any) {
+      toast.error(err.message || 'Export failed');
+    }
+    setExporting(false);
+  }
+
+  return (
+    <Card className="border-border/50">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2"><Download className="h-5 w-5 text-primary" />Export Workouts</CardTitle>
+        <CardDescription>Download your training plan for Garmin, COROS, or offline use</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-3">
+          <Label className="text-xs text-muted-foreground uppercase tracking-wider">JSON Format</Label>
+          <div className="grid grid-cols-2 gap-3">
+            <Button variant="outline" disabled={exporting} onClick={() => handleExport('json', 'week')} className="justify-start gap-2">
+              <FileJson className="h-4 w-4 text-primary" /> Next 7 Days
+            </Button>
+            <Button variant="outline" disabled={exporting} onClick={() => handleExport('json', 'month')} className="justify-start gap-2">
+              <FileJson className="h-4 w-4 text-primary" /> Next 30 Days
+            </Button>
+          </div>
+        </div>
+        <div className="space-y-3">
+          <Label className="text-xs text-muted-foreground uppercase tracking-wider">FIT Format (Garmin / COROS)</Label>
+          <div className="grid grid-cols-2 gap-3">
+            <Button variant="outline" disabled={exporting} onClick={() => handleExport('fit', 'week')} className="justify-start gap-2">
+              <Watch className="h-4 w-4 text-primary" /> Next 7 Days
+            </Button>
+            <Button variant="outline" disabled={exporting} onClick={() => handleExport('fit', 'month')} className="justify-start gap-2">
+              <Watch className="h-4 w-4 text-primary" /> Next 30 Days
+            </Button>
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground">FIT export generates a structured JSON that can be converted to binary FIT format for watch upload.</p>
+      </CardContent>
+    </Card>
   );
 }
