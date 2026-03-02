@@ -103,8 +103,8 @@ Analyze my training and give me coaching recommendations.`;
           { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      const t = await response.text();
-      console.error("AI gateway error:", response.status, t);
+      await response.text();
+      console.error("AI gateway error:", { status: response.status });
       return new Response(
         JSON.stringify({ error: "AI analysis failed" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -115,9 +115,9 @@ Analyze my training and give me coaching recommendations.`;
       headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
     });
   } catch (e) {
-    console.error("ai-coach error:", e);
+    console.error("ai-coach error:", { message: e instanceof Error ? e.message : "Unknown error" });
     return new Response(
-      JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }),
+      JSON.stringify({ error: "An internal error occurred" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
