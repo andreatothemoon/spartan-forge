@@ -1,17 +1,18 @@
 import { useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Session = Tables<'sessions'>;
 
 const TYPE_COLORS: Record<string, string> = {
-  easy: 'hsl(175, 70%, 42%)',
-  tempo: 'hsl(35, 85%, 55%)',
-  interval: 'hsl(0, 65%, 48%)',
-  long: 'hsl(260, 50%, 55%)',
-  recovery: 'hsl(215, 12%, 50%)',
-  race: 'hsl(45, 90%, 55%)',
+  easy: 'hsl(152, 55%, 46%)',
+  tempo: 'hsl(38, 85%, 55%)',
+  interval: 'hsl(0, 65%, 55%)',
+  long: 'hsl(260, 55%, 58%)',
+  recovery: 'hsl(175, 55%, 45%)',
+  race_sim: 'hsl(330, 65%, 55%)',
+  strength: 'hsl(215, 45%, 55%)',
 };
 
 export default function SessionTypeChart({ sessions }: { sessions: Session[] }) {
@@ -29,11 +30,12 @@ export default function SessionTypeChart({ sessions }: { sessions: Session[] }) 
   if (data.length === 0) return null;
 
   return (
-    <Card className="border-border/50">
+    <Card className="border-border/30">
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-          Session Type Distribution
+          Session Distribution
         </CardTitle>
+        <CardDescription className="text-xs text-muted-foreground/60">Breakdown by workout type</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="h-[240px]">
@@ -43,8 +45,8 @@ export default function SessionTypeChart({ sessions }: { sessions: Session[] }) 
                 data={data}
                 cx="50%"
                 cy="50%"
-                innerRadius={50}
-                outerRadius={80}
+                innerRadius={55}
+                outerRadius={85}
                 paddingAngle={3}
                 dataKey="value"
                 stroke="none"
@@ -58,16 +60,17 @@ export default function SessionTypeChart({ sessions }: { sessions: Session[] }) 
               </Pie>
               <Tooltip
                 contentStyle={{
-                  backgroundColor: 'hsl(220, 18%, 12%)',
-                  border: '1px solid hsl(220, 15%, 18%)',
-                  borderRadius: '6px',
+                  backgroundColor: 'hsl(225, 16%, 9%)',
+                  border: '1px solid hsl(225, 14%, 15%)',
+                  borderRadius: '8px',
                   fontSize: '11px',
-                  color: 'hsl(210, 15%, 85%)',
+                  color: 'hsl(220, 10%, 90%)',
+                  boxShadow: '0 8px 24px hsl(0 0% 0% / 0.3)',
                 }}
               />
               <Legend
                 wrapperStyle={{ fontSize: '10px' }}
-                formatter={(value: string) => <span style={{ color: 'hsl(210, 15%, 85%)' }}>{value}</span>}
+                formatter={(value: string) => <span style={{ color: 'hsl(220, 10%, 60%)' }}>{value}</span>}
               />
             </PieChart>
           </ResponsiveContainer>

@@ -1,9 +1,10 @@
 import { useNavigate } from 'react-router-dom';
-import { Badge } from '@/components/ui/badge';
 import {
   format, startOfMonth, endOfMonth, startOfWeek, endOfWeek,
   addDays, isSameMonth, isSameDay, parseISO,
 } from 'date-fns';
+import { motion } from 'framer-motion';
+import { CheckCircle2 } from 'lucide-react';
 import { SESSION_TYPE_LABELS } from '@/lib/paceUtils';
 import type { Tables } from '@/integrations/supabase/types';
 
@@ -50,9 +51,9 @@ export default function MonthlyView({ sessions, currentMonth }: MonthlyViewProps
   return (
     <div>
       {/* Day name headers */}
-      <div className="grid grid-cols-7 gap-1 mb-1">
+      <div className="grid grid-cols-7 gap-1.5 mb-2">
         {dayNames.map(n => (
-          <div key={n} className="text-[10px] font-mono text-muted-foreground text-center py-1 font-semibold uppercase tracking-wider">
+          <div key={n} className="text-[10px] font-mono text-muted-foreground text-center py-1.5 font-semibold uppercase tracking-wider">
             {n}
           </div>
         ))}
@@ -60,7 +61,13 @@ export default function MonthlyView({ sessions, currentMonth }: MonthlyViewProps
 
       {/* Weeks */}
       {weeks.map((week, wi) => (
-        <div key={wi} className="grid grid-cols-7 gap-1 mb-1">
+        <motion.div
+          key={wi}
+          initial={{ opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: wi * 0.03 }}
+          className="grid grid-cols-7 gap-1.5 mb-1.5"
+        >
           {week.map(day => {
             const inMonth = isSameMonth(day, currentMonth);
             const isToday = isSameDay(day, today);
@@ -69,32 +76,39 @@ export default function MonthlyView({ sessions, currentMonth }: MonthlyViewProps
             return (
               <div
                 key={day.toISOString()}
-                className={`min-h-[80px] rounded-md border p-1.5 transition-colors ${
-                  !inMonth ? 'border-border/20 opacity-30' : 'border-border/50'
-                } ${isToday ? 'ring-1 ring-primary/50 bg-primary/5' : ''}`}
+                className={`min-h-[90px] rounded-lg border p-2 transition-all ${
+                  !inMonth ? 'border-border/10 opacity-20' : 'border-border/30 hover:border-border/50'
+                } ${isToday ? 'ring-1 ring-primary/40 bg-primary/5 border-primary/20' : ''}`}
               >
-                <div className={`text-[10px] font-mono mb-1 ${isToday ? 'text-primary font-bold' : 'text-muted-foreground'}`}>
+                <div className={`text-[10px] font-mono mb-1.5 ${
+                  isToday ? 'text-primary font-bold' : 'text-muted-foreground'
+                }`}>
                   {format(day, 'd')}
                 </div>
-                <div className="space-y-0.5">
+                <div className="space-y-1">
                   {daySessions.slice(0, 2).map(s => (
                     <div
                       key={s.id}
-                      className={`flex items-center gap-1 px-1 py-0.5 rounded cursor-pointer hover:bg-primary/10 transition-colors ${s.completed ? 'opacity-50' : ''}`}
+                      className={`flex items-center gap-1.5 px-1.5 py-1 rounded-md cursor-pointer hover:bg-primary/10 transition-colors group ${
+                        s.completed ? 'opacity-40' : ''
+                      }`}
                       onClick={() => navigate(`/session/${s.id}`)}
                     >
                       <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${SESSION_DOT_COLORS[s.session_type] || 'bg-muted-foreground'}`} />
-                      <span className="text-[9px] font-medium truncate">{s.title}</span>
+                      <span className="text-[9px] font-medium truncate text-foreground/80 group-hover:text-primary transition-colors">
+                        {s.title}
+                      </span>
+                      {s.completed && <CheckCircle2 className="h-2.5 w-2.5 text-success shrink-0 ml-auto" />}
                     </div>
                   ))}
                   {daySessions.length > 2 && (
-                    <span className="text-[8px] text-muted-foreground px-1">+{daySessions.length - 2} more</span>
+                    <span className="text-[8px] text-muted-foreground/60 px-1.5">+{daySessions.length - 2} more</span>
                   )}
                 </div>
               </div>
             );
           })}
-        </div>
+        </motion.div>
       ))}
     </div>
   );

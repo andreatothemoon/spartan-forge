@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { parseISO, startOfWeek, differenceInWeeks, format } from 'date-fns';
 import type { Tables } from '@/integrations/supabase/types';
@@ -39,59 +39,60 @@ export default function TrainingVolumeChart({ sessions }: TrainingVolumeChartPro
       .map(([_, v]) => v);
   }, [sessions]);
 
-  if (data.length === 0) {
-    return null;
-  }
+  if (data.length === 0) return null;
 
   return (
-    <Card className="border-border/50">
+    <Card className="border-border/30">
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
           Weekly Training Volume
         </CardTitle>
+        <CardDescription className="text-xs text-muted-foreground/60">Planned vs completed sessions per week</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="h-[200px]">
+        <div className="h-[220px]">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data} barGap={2}>
               <XAxis
                 dataKey="label"
-                tick={{ fontSize: 10, fill: 'hsl(215 12% 50%)' }}
+                tick={{ fontSize: 10, fill: 'hsl(220 10% 48%)' }}
                 axisLine={false}
                 tickLine={false}
               />
               <YAxis
-                tick={{ fontSize: 10, fill: 'hsl(215 12% 50%)' }}
+                tick={{ fontSize: 10, fill: 'hsl(220 10% 48%)' }}
                 axisLine={false}
                 tickLine={false}
                 allowDecimals={false}
               />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: 'hsl(220 18% 12%)',
-                  border: '1px solid hsl(220 15% 18%)',
-                  borderRadius: '6px',
+                  backgroundColor: 'hsl(225 16% 9%)',
+                  border: '1px solid hsl(225 14% 15%)',
+                  borderRadius: '8px',
                   fontSize: '11px',
-                  color: 'hsl(210 15% 85%)',
+                  color: 'hsl(220 10% 90%)',
+                  boxShadow: '0 8px 24px hsl(0 0% 0% / 0.3)',
                 }}
-                labelStyle={{ color: 'hsl(210 15% 85%)' }}
+                labelStyle={{ color: 'hsl(220 10% 90%)' }}
               />
               <Legend
                 wrapperStyle={{ fontSize: '10px' }}
+                formatter={(value: string) => <span style={{ color: 'hsl(220 10% 60%)' }}>{value}</span>}
               />
               <Bar
                 dataKey="planned"
                 name="Planned"
-                fill="hsl(175 70% 42% / 0.3)"
-                stroke="hsl(175 70% 42%)"
+                fill="hsl(12 70% 62% / 0.2)"
+                stroke="hsl(12 70% 62% / 0.5)"
                 strokeWidth={1}
-                radius={[3, 3, 0, 0]}
+                radius={[4, 4, 0, 0]}
               />
               <Bar
                 dataKey="completed"
                 name="Completed"
-                fill="hsl(145 60% 42%)"
-                radius={[3, 3, 0, 0]}
+                fill="hsl(152 55% 46%)"
+                radius={[4, 4, 0, 0]}
               />
             </BarChart>
           </ResponsiveContainer>

@@ -4,8 +4,9 @@ import { supabase } from '@/integrations/supabase/client';
 import AppLayout from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react';
 import { format, addWeeks, subWeeks, addMonths, subMonths, startOfWeek, startOfMonth } from 'date-fns';
+import { motion } from 'framer-motion';
 import WeeklyView from '@/components/calendar/WeeklyView';
 import MonthlyView from '@/components/calendar/MonthlyView';
 import type { Tables } from '@/integrations/supabase/types';
@@ -63,40 +64,65 @@ export default function PlanCalendar() {
 
   return (
     <AppLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <h1 className="text-2xl font-bold tracking-tight">Plan Calendar</h1>
+      <div className="space-y-6 max-w-4xl mx-auto">
+        {/* Hero Header */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex flex-col sm:flex-row sm:items-end justify-between gap-4"
+        >
+          <div className="space-y-1">
+            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Training Schedule</p>
+            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground">
+              Plan Calendar
+            </h1>
+          </div>
           <Tabs value={view} onValueChange={(v) => setView(v as 'week' | 'month')}>
-            <TabsList className="h-8">
-              <TabsTrigger value="week" className="text-xs px-3 h-6">Week</TabsTrigger>
-              <TabsTrigger value="month" className="text-xs px-3 h-6">Month</TabsTrigger>
+            <TabsList className="h-9 bg-secondary/50 border border-border/30">
+              <TabsTrigger value="week" className="text-xs px-4 h-7 data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Week</TabsTrigger>
+              <TabsTrigger value="month" className="text-xs px-4 h-7 data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Month</TabsTrigger>
             </TabsList>
           </Tabs>
-        </div>
+        </motion.div>
 
         {/* Navigation */}
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={navigatePrev}>
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+          className="flex items-center gap-2"
+        >
+          <Button variant="ghost" size="icon" onClick={navigatePrev} className="h-8 w-8 text-muted-foreground hover:text-primary">
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="sm" onClick={navigateToday} className="font-mono text-xs">
+          <Button variant="ghost" size="sm" onClick={navigateToday} className="text-xs text-muted-foreground hover:text-primary h-8 px-3">
             Today
           </Button>
-          <Button variant="ghost" size="sm" onClick={navigateNext}>
+          <Button variant="ghost" size="icon" onClick={navigateNext} className="h-8 w-8 text-muted-foreground hover:text-primary">
             <ChevronRight className="h-4 w-4" />
           </Button>
           <span className="text-sm text-muted-foreground font-mono ml-2">{headerLabel}</span>
-        </div>
+        </motion.div>
 
         {/* Calendar */}
-        {loading ? (
-          <div className="text-center py-20 text-muted-foreground font-mono text-sm">LOADING...</div>
-        ) : view === 'week' ? (
-          <WeeklyView sessions={sessions} weekStart={weekStart} />
-        ) : (
-          <MonthlyView sessions={sessions} currentMonth={monthStart} />
-        )}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+        >
+          {loading ? (
+            <div className="flex items-center justify-center py-32">
+              <div className="flex flex-col items-center gap-3">
+                <CalendarDays className="h-5 w-5 text-primary animate-pulse" />
+                <p className="text-sm text-muted-foreground">Loading schedule...</p>
+              </div>
+            </div>
+          ) : view === 'week' ? (
+            <WeeklyView sessions={sessions} weekStart={weekStart} />
+          ) : (
+            <MonthlyView sessions={sessions} currentMonth={monthStart} />
+          )}
+        </motion.div>
       </div>
     </AppLayout>
   );
