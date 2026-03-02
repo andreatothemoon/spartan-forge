@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { parseISO, startOfWeek, differenceInWeeks, format } from 'date-fns';
 import type { Tables } from '@/integrations/supabase/types';
@@ -37,11 +37,12 @@ export default function ComplianceTrendChart({ sessions }: { sessions: Session[]
   if (data.length === 0) return null;
 
   return (
-    <Card className="border-border/50">
+    <Card className="border-border/30">
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-          Weekly Compliance Trend
+          Compliance Trend
         </CardTitle>
+        <CardDescription className="text-xs text-muted-foreground/60">Weekly completion rate over time</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="h-[200px]">
@@ -49,12 +50,12 @@ export default function ComplianceTrendChart({ sessions }: { sessions: Session[]
             <LineChart data={data}>
               <XAxis
                 dataKey="label"
-                tick={{ fontSize: 10, fill: 'hsl(215, 12%, 50%)' }}
+                tick={{ fontSize: 10, fill: 'hsl(220 10% 48%)' }}
                 axisLine={false}
                 tickLine={false}
               />
               <YAxis
-                tick={{ fontSize: 10, fill: 'hsl(215, 12%, 50%)' }}
+                tick={{ fontSize: 10, fill: 'hsl(220 10% 48%)' }}
                 axisLine={false}
                 tickLine={false}
                 domain={[0, 100]}
@@ -62,21 +63,22 @@ export default function ComplianceTrendChart({ sessions }: { sessions: Session[]
               />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: 'hsl(220, 18%, 12%)',
-                  border: '1px solid hsl(220, 15%, 18%)',
-                  borderRadius: '6px',
+                  backgroundColor: 'hsl(225 16% 9%)',
+                  border: '1px solid hsl(225 14% 15%)',
+                  borderRadius: '8px',
                   fontSize: '11px',
-                  color: 'hsl(210, 15%, 85%)',
+                  color: 'hsl(220 10% 90%)',
+                  boxShadow: '0 8px 24px hsl(0 0% 0% / 0.3)',
                 }}
                 formatter={(value: number) => [`${value}%`, 'Compliance']}
               />
               <Line
                 type="monotone"
                 dataKey="compliance"
-                stroke="hsl(175, 70%, 42%)"
+                stroke="hsl(12 70% 62%)"
                 strokeWidth={2}
-                dot={{ r: 3, fill: 'hsl(175, 70%, 42%)' }}
-                activeDot={{ r: 5 }}
+                dot={{ r: 3, fill: 'hsl(12 70% 62%)', strokeWidth: 0 }}
+                activeDot={{ r: 5, fill: 'hsl(12 70% 62%)', stroke: 'hsl(12 70% 62% / 0.3)', strokeWidth: 4 }}
               />
             </LineChart>
           </ResponsiveContainer>

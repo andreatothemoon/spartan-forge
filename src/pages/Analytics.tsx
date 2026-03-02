@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import AppLayout from '@/components/AppLayout';
+import { motion } from 'framer-motion';
+import { TrendingUp } from 'lucide-react';
 import TrainingVolumeChart from '@/components/calendar/TrainingVolumeChart';
 import SessionTypeChart from '@/components/calendar/SessionTypeChart';
 import ComplianceTrendChart from '@/components/calendar/ComplianceTrendChart';
@@ -39,26 +41,52 @@ export default function Analytics() {
 
   return (
     <AppLayout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Reports & Analytics</h1>
-          <p className="text-sm text-muted-foreground font-mono mt-1">TRAINING INSIGHTS</p>
-        </div>
+      <div className="space-y-6 max-w-4xl mx-auto">
+        {/* Hero Header */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="space-y-1"
+        >
+          <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Performance</p>
+          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground">
+            Analytics
+          </h1>
+        </motion.div>
 
         {loading ? (
-          <div className="text-center py-20 text-muted-foreground font-mono text-sm">LOADING ANALYTICS...</div>
-        ) : sessions.length === 0 ? (
-          <div className="text-center py-20 text-muted-foreground text-sm">
-            <p>No training data yet.</p>
-            <p className="text-xs mt-1">Generate a plan to see analytics.</p>
+          <div className="flex items-center justify-center py-32">
+            <div className="flex flex-col items-center gap-3">
+              <TrendingUp className="h-5 w-5 text-primary animate-pulse" />
+              <p className="text-sm text-muted-foreground">Loading insights...</p>
+            </div>
           </div>
+        ) : sessions.length === 0 ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="text-center py-24"
+          >
+            <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
+              <TrendingUp className="h-6 w-6 text-primary" />
+            </div>
+            <p className="text-foreground font-medium">No training data yet</p>
+            <p className="text-xs text-muted-foreground mt-1">Generate a plan to see your analytics</p>
+          </motion.div>
         ) : (
           <div className="space-y-6">
-            <TrainingVolumeChart sessions={sessions} />
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}>
+              <TrainingVolumeChart sessions={sessions} />
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.14 }}
+              className="grid grid-cols-1 md:grid-cols-2 gap-6"
+            >
               <SessionTypeChart sessions={sessions} />
               <ComplianceTrendChart sessions={sessions} />
-            </div>
+            </motion.div>
           </div>
         )}
       </div>
