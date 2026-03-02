@@ -14,7 +14,7 @@ import { motion } from 'framer-motion';
 import { User, Clock, Target, ChevronRight, ChevronLeft, Check, Download, FileJson, Watch } from 'lucide-react';
 import { DAYS, DAY_LABELS, secPerKmToDisplay, displayToSecPerKm, defaultPaceZones, defaultHrZones } from '@/lib/paceUtils';
 
-const STEPS = ['Athlete Profile', 'Availability', 'Race Goal', 'Export'];
+const STEPS = ['Athlete Profile', 'Availability', 'Race Goal'];
 
 export default function Onboarding() {
   const { user } = useAuth();
@@ -272,7 +272,6 @@ export default function Onboarding() {
             </Card>
           )}
 
-          {step === 3 && <ExportWorkoutsSection />}
         </motion.div>
 
         <div className="flex justify-between mt-6">
@@ -283,11 +282,16 @@ export default function Onboarding() {
             <Button onClick={() => setStep(s => s + 1)}>
               Next<ChevronRight className="h-4 w-4 ml-1" />
             </Button>
-          ) : step === 2 ? (
+          ) : (
             <Button onClick={saveAll} disabled={saving} className="glow-primary">
               {saving ? 'Saving...' : 'Save & Continue'}
             </Button>
-          ) : null}
+          )}
+        </div>
+
+        {/* Export Workouts — standalone section */}
+        <div className="mt-10 pt-8 border-t border-border/30">
+          <ExportWorkoutsSection />
         </div>
       </div>
     </AppLayout>
