@@ -26,7 +26,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
               <Activity className="h-4 w-4 text-primary" />
             </div>
-            <span className="font-semibold tracking-tight text-foreground">Spartan Ops</span>
+            <span className="font-semibold tracking-tight text-foreground">Spartan Forge</span>
           </Link>
 
           <nav className="hidden sm:flex items-center gap-0.5 bg-muted/50 rounded-xl p-1">
