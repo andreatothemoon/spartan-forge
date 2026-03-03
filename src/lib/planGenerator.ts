@@ -38,6 +38,39 @@ interface GeneratedStep {
 
 const DAY_MAP: Record<string, number> = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 };
 
+/**
+ * Returns a volume scaling factor (0.55–1.0) for progressive overload.
+ * Ramps from 0.6 → 1.0 over the build phase, tapers in final 2 weeks,
+ * and dips during recovery weeks.
+ */
+export function getWeeklyVolumeFactor(week: number, totalWeeks: number, isRecoveryWeek: boolean): number {
+  const taperWeeks = Math.min(2, Math.floor(totalWeeks * 0.12));
+  const peakWeek = totalWeeks - taperWeeks - 1; // last build week before taper
+
+  // Base build factor: lerp 0.6 → 1.0 across weeks 0..peakWeek
+  let baseFactor: number;
+  if (peakWeek <= 0) {
+    baseFactor = 0.8;
+  } else {
+    const progress = Math.min(week / peakWeek, 1);
+    baseFactor = 0.6 + progress * 0.4; // 0.6 → 1.0
+  }
+
+  // Taper: final weeks ramp down
+  if (week >= totalWeeks - taperWeeks) {
+    const taperIndex = week - (totalWeeks - taperWeeks); // 0-based within taper
+    const taperFactor = 0.85 - taperIndex * 0.15; // 0.85, 0.70
+    return Math.max(0.55, taperFactor);
+  }
+
+  // Recovery week: reduce from current build level
+  if (isRecoveryWeek) {
+    return Math.max(0.55, baseFactor * 0.65);
+  }
+
+  return baseFactor;
+}
+
 function getDayKey(date: Date): string {
   const keys = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
   return keys[getDay(date)];
@@ -86,13 +119,19 @@ export function generatePlan(input: GenerateInput): GeneratedSession[] {
     const weekStart = addDays(startDate, week * 7);
     const phase = week / totalWeeks;
     const isRecoveryWeek = week % 4 === 3;
+    const volumeFactor = getWeeklyVolumeFactor(week, totalWeeks, isRecoveryWeek);
+
+    // Determine week annotation for notes
+    const taperWeeks = Math.min(2, Math.floor(totalWeeks * 0.12));
+    const isTaperWeek = week >= totalWeeks - taperWeeks;
+    const weekNote = isTaperWeek ? ' | Taper week – reduced volume.' : isRecoveryWeek ? ' | Recovery week – reduced volume.' : '';
 
     // Long run
     const longRunDate = getDateForDay(weekStart, longRunDay);
     if (longRunDate <= raceDate) {
       const maxMins = maxMinutes[longRunDay] || 90;
-      const duration = isRecoveryWeek ? Math.round(maxMins * 0.6) : maxMins;
-      sessions.push(createLongRun(longRunDate, duration, tp, thr, phase));
+      const duration = Math.round(maxMins * volumeFactor);
+      sessions.push(createLongRun(longRunDate, duration, tp, thr, phase, weekNote));
     }
 
     // Quality sessions
@@ -102,14 +141,14 @@ export function generatePlan(input: GenerateInput): GeneratedSession[] {
       const date = getDateForDay(weekStart, day);
       if (date > raceDate) continue;
       const maxMins = maxMinutes[day] || 45;
-      const dur = isRecoveryWeek ? Math.round(maxMins * 0.7) : maxMins;
+      const dur = Math.round(maxMins * volumeFactor);
       const type = qualityTypes[i % qualityTypes.length];
       if (type === 'interval') {
-        sessions.push(createIntervalSession(date, dur, tp, thr));
+        sessions.push(createIntervalSession(date, dur, tp, thr, weekNote));
       } else if (type === 'race_sim') {
-        sessions.push(createRaceSimSession(date, dur, tp, thr));
+        sessions.push(createRaceSimSession(date, dur, tp, thr, weekNote));
       } else {
-        sessions.push(createTempoSession(date, dur, tp, thr));
+        sessions.push(createTempoSession(date, dur, tp, thr, weekNote));
       }
     }
 
@@ -118,8 +157,8 @@ export function generatePlan(input: GenerateInput): GeneratedSession[] {
       const date = getDateForDay(weekStart, day);
       if (date > raceDate) continue;
       const maxMins = maxMinutes[day] || 30;
-      const dur = isRecoveryWeek ? Math.round(maxMins * 0.6) : Math.round(maxMins * 0.8);
-      sessions.push(createEasyRun(date, dur, tp, thr));
+      const dur = Math.round(maxMins * volumeFactor);
+      sessions.push(createEasyRun(date, dur, tp, thr, weekNote));
     }
   }
 
@@ -132,7 +171,7 @@ function getDateForDay(weekStart: Date, dayKey: string): Date {
   return addDays(mondayStart, dayIndex);
 }
 
-function createEasyRun(date: Date, mins: number, tp: number, thr: number): GeneratedSession {
+function createEasyRun(date: Date, mins: number, tp: number, thr: number, weekNote: string = ''): GeneratedSession {
   const warmup = Math.min(300, mins * 60 * 0.15);
   const cooldown = Math.min(300, mins * 60 * 0.15);
   const main = mins * 60 - warmup - cooldown;
@@ -141,7 +180,7 @@ function createEasyRun(date: Date, mins: number, tp: number, thr: number): Gener
     title: 'Easy Run',
     session_type: 'easy',
     primary_target: 'hr',
-    notes: 'Keep it conversational. Zone 2 effort.',
+    notes: 'Keep it conversational. Zone 2 effort.' + weekNote,
     steps: [
       makeStep(0, 'warmup', 'time', warmup, null, null, Math.round(thr * 0.65), Math.round(thr * 0.75), 'Easy warmup'),
       makeStep(1, 'work', 'time', main, Math.round(tp * 1.15), Math.round(tp * 1.25), Math.round(thr * 0.75), Math.round(thr * 0.85), 'Easy pace, Zone 2'),
@@ -150,7 +189,7 @@ function createEasyRun(date: Date, mins: number, tp: number, thr: number): Gener
   };
 }
 
-function createLongRun(date: Date, mins: number, tp: number, thr: number, phase: number): GeneratedSession {
+function createLongRun(date: Date, mins: number, tp: number, thr: number, phase: number, weekNote: string = ''): GeneratedSession {
   const warmup = 600;
   const cooldown = 600;
   const main = mins * 60 - warmup - cooldown;
@@ -159,7 +198,7 @@ function createLongRun(date: Date, mins: number, tp: number, thr: number, phase:
     title: 'Long Run',
     session_type: 'long',
     primary_target: 'hr',
-    notes: `Build endurance. ${phase > 0.5 ? 'Include some tempo segments in the last third.' : 'Stay in Zone 2 throughout.'}`,
+    notes: `Build endurance. ${phase > 0.5 ? 'Include some tempo segments in the last third.' : 'Stay in Zone 2 throughout.'}` + weekNote,
     steps: [
       makeStep(0, 'warmup', 'time', warmup, null, null, Math.round(thr * 0.65), Math.round(thr * 0.75), 'Easy warmup'),
       makeStep(1, 'work', 'time', main, Math.round(tp * 1.1), Math.round(tp * 1.25), Math.round(thr * 0.75), Math.round(thr * 0.85), 'Steady, Zone 2'),
@@ -168,7 +207,7 @@ function createLongRun(date: Date, mins: number, tp: number, thr: number, phase:
   };
 }
 
-function createTempoSession(date: Date, mins: number, tp: number, thr: number): GeneratedSession {
+function createTempoSession(date: Date, mins: number, tp: number, thr: number, weekNote: string = ''): GeneratedSession {
   const warmup = 600;
   const cooldown = 300;
   const tempoTime = Math.round((mins * 60 - warmup - cooldown) * 0.7);
@@ -178,7 +217,7 @@ function createTempoSession(date: Date, mins: number, tp: number, thr: number): 
     title: 'Tempo Run',
     session_type: 'tempo',
     primary_target: 'pace',
-    notes: 'Comfortably hard. Zone 3-4 effort.',
+    notes: 'Comfortably hard. Zone 3-4 effort.' + weekNote,
     steps: [
       makeStep(0, 'warmup', 'time', warmup, null, null, null, null, 'Easy warmup with strides'),
       makeStep(1, 'work', 'time', easyBefore, Math.round(tp * 1.1), Math.round(tp * 1.2), null, null, 'Easy transition'),
@@ -188,7 +227,7 @@ function createTempoSession(date: Date, mins: number, tp: number, thr: number): 
   };
 }
 
-function createIntervalSession(date: Date, mins: number, tp: number, thr: number): GeneratedSession {
+function createIntervalSession(date: Date, mins: number, tp: number, thr: number, weekNote: string = ''): GeneratedSession {
   const warmup = 600;
   const cooldown = 300;
   const remaining = mins * 60 - warmup - cooldown;
@@ -214,12 +253,12 @@ function createIntervalSession(date: Date, mins: number, tp: number, thr: number
     title: `${reps}x${workTime / 60}min Intervals`,
     session_type: 'interval',
     primary_target: 'pace',
-    notes: 'Hard intervals with jog recovery. Push Zone 4-5.',
+    notes: 'Hard intervals with jog recovery. Push Zone 4-5.' + weekNote,
     steps,
   };
 }
 
-function createRaceSimSession(date: Date, mins: number, tp: number, thr: number): GeneratedSession {
+function createRaceSimSession(date: Date, mins: number, tp: number, thr: number, weekNote: string = ''): GeneratedSession {
   const warmup = 600;
   const cooldown = 300;
   const main = mins * 60 - warmup - cooldown;
@@ -228,7 +267,7 @@ function createRaceSimSession(date: Date, mins: number, tp: number, thr: number)
     title: 'Race Simulation',
     session_type: 'race_sim',
     primary_target: 'pace',
-    notes: 'Practice race pace and nutrition strategy.',
+    notes: 'Practice race pace and nutrition strategy.' + weekNote,
     steps: [
       makeStep(0, 'warmup', 'time', warmup, null, null, null, null, 'Easy warmup'),
       makeStep(1, 'work', 'time', Math.round(main * 0.4), Math.round(tp * 1.05), Math.round(tp * 1.15), null, null, 'Easy start'),
