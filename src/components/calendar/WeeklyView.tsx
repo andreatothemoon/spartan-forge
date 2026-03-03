@@ -17,6 +17,7 @@ const SESSION_COLORS: Record<string, string> = {
   recovery: 'bg-session-recovery/15 text-session-recovery border-session-recovery/25',
   race_sim: 'bg-session-race-sim/15 text-session-race-sim border-session-race-sim/25',
   strength: 'bg-session-strength/15 text-session-strength border-session-strength/25',
+  obstacle: 'bg-session-obstacle/15 text-session-obstacle border-session-obstacle/25',
 };
 
 const SESSION_DOT_COLORS: Record<string, string> = {
@@ -27,6 +28,7 @@ const SESSION_DOT_COLORS: Record<string, string> = {
   recovery: 'bg-session-recovery',
   race_sim: 'bg-session-race-sim',
   strength: 'bg-session-strength',
+  obstacle: 'bg-session-obstacle',
 };
 
 interface WeeklyViewProps {

@@ -77,6 +77,7 @@ export default {
           recovery: "hsl(var(--session-recovery))",
           "race-sim": "hsl(var(--session-race-sim))",
           strength: "hsl(var(--session-strength))",
+          obstacle: "hsl(var(--session-obstacle))",
         },
       },
       borderRadius: {
