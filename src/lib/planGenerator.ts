@@ -13,6 +13,7 @@ interface GenerateInput {
   weekendLongRunAvoid: boolean;
   thresholdPace?: number;
   thresholdHr?: number;
+  obstacleSessionsPerWeek?: number;
 }
 
 interface GeneratedSession {
@@ -40,30 +41,25 @@ const DAY_MAP: Record<string, number> = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4
 
 /**
  * Returns a volume scaling factor (0.55–1.0) for progressive overload.
- * Ramps from 0.6 → 1.0 over the build phase, tapers in final 2 weeks,
- * and dips during recovery weeks.
  */
 export function getWeeklyVolumeFactor(week: number, totalWeeks: number, isRecoveryWeek: boolean): number {
   const taperWeeks = Math.min(2, Math.floor(totalWeeks * 0.12));
-  const peakWeek = totalWeeks - taperWeeks - 1; // last build week before taper
+  const peakWeek = totalWeeks - taperWeeks - 1;
 
-  // Base build factor: lerp 0.6 → 1.0 across weeks 0..peakWeek
   let baseFactor: number;
   if (peakWeek <= 0) {
     baseFactor = 0.8;
   } else {
     const progress = Math.min(week / peakWeek, 1);
-    baseFactor = 0.6 + progress * 0.4; // 0.6 → 1.0
+    baseFactor = 0.6 + progress * 0.4;
   }
 
-  // Taper: final weeks ramp down
   if (week >= totalWeeks - taperWeeks) {
-    const taperIndex = week - (totalWeeks - taperWeeks); // 0-based within taper
-    const taperFactor = 0.85 - taperIndex * 0.15; // 0.85, 0.70
+    const taperIndex = week - (totalWeeks - taperWeeks);
+    const taperFactor = 0.85 - taperIndex * 0.15;
     return Math.max(0.55, taperFactor);
   }
 
-  // Recovery week: reduce from current build level
   if (isRecoveryWeek) {
     return Math.max(0.55, baseFactor * 0.65);
   }
@@ -80,6 +76,7 @@ export function generatePlan(input: GenerateInput): GeneratedSession[] {
   const { startDate, raceDate, daysAvailable, maxMinutes, preferredLongRunDay, weekendLongRunAvoid } = input;
   const totalWeeks = Math.max(1, differenceInWeeks(raceDate, startDate));
   const sessions: GeneratedSession[] = [];
+  const obstaclePerWeek = input.obstacleSessionsPerWeek ?? 0;
 
   // Get available days sorted
   const availableDays = Object.entries(daysAvailable)
@@ -109,6 +106,17 @@ export function generatePlan(input: GenerateInput): GeneratedSession[] {
       qualityDays.push(day);
     } else {
       easyDays.push(day);
+    }
+  }
+
+  // Pick obstacle days from easy days (or quality days if not enough easy days)
+  const obstacleDays: string[] = [];
+  const remainingEasy: string[] = [];
+  for (const day of easyDays) {
+    if (obstacleDays.length < obstaclePerWeek) {
+      obstacleDays.push(day);
+    } else {
+      remainingEasy.push(day);
     }
   }
 
@@ -144,7 +152,7 @@ export function generatePlan(input: GenerateInput): GeneratedSession[] {
       const dur = Math.round(maxMins * volumeFactor);
       const type = qualityTypes[i % qualityTypes.length];
       if (type === 'interval') {
-        sessions.push(createIntervalSession(date, dur, tp, thr, weekNote));
+        sessions.push(createIntervalSession(date, dur, tp, thr, phase, isTaperWeek, weekNote));
       } else if (type === 'race_sim') {
         sessions.push(createRaceSimSession(date, dur, tp, thr, weekNote));
       } else {
@@ -152,8 +160,17 @@ export function generatePlan(input: GenerateInput): GeneratedSession[] {
       }
     }
 
-    // Easy days
-    for (const day of easyDays) {
+    // Obstacle training sessions
+    for (const day of obstacleDays) {
+      const date = getDateForDay(weekStart, day);
+      if (date > raceDate) continue;
+      const maxMins = maxMinutes[day] || 45;
+      const dur = Math.round(maxMins * volumeFactor);
+      sessions.push(createObstacleSession(date, dur, thr, phase, weekNote));
+    }
+
+    // Easy days (remaining after obstacle allocation)
+    for (const day of remainingEasy) {
       const date = getDateForDay(weekStart, day);
       if (date > raceDate) continue;
       const maxMins = maxMinutes[day] || 30;
@@ -207,33 +224,83 @@ function createLongRun(date: Date, mins: number, tp: number, thr: number, phase:
   };
 }
 
+/**
+ * Tempo session: continuous intervals without rest.
+ * Structure: 1km at race pace, 500m hard pace, 500m recovery pace — repeating.
+ */
 function createTempoSession(date: Date, mins: number, tp: number, thr: number, weekNote: string = ''): GeneratedSession {
   const warmup = 600;
   const cooldown = 300;
-  const tempoTime = Math.round((mins * 60 - warmup - cooldown) * 0.7);
-  const easyBefore = Math.round((mins * 60 - warmup - cooldown - tempoTime) / 2);
+  const mainTime = mins * 60 - warmup - cooldown;
+
+  // Each set is 2km total: 1km race pace + 500m hard + 500m recovery
+  // Estimate time per set based on threshold pace
+  const raceKmTime = tp; // sec per km at race pace
+  const hardKmTime = Math.round(tp * 0.88); // hard pace (faster)
+  const recoveryKmTime = Math.round(tp * 1.2); // recovery pace (slower)
+  const setTimeSec = raceKmTime + hardKmTime * 0.5 + recoveryKmTime * 0.5;
+
+  const sets = Math.max(2, Math.min(8, Math.floor(mainTime / setTimeSec)));
+
+  const steps: GeneratedStep[] = [
+    makeStep(0, 'warmup', 'time', warmup, null, null, null, null, 'Easy warmup with strides'),
+  ];
+
+  let order = 1;
+  for (let i = 0; i < sets; i++) {
+    // 1km at race pace
+    steps.push(makeStep(order++, 'work', 'distance', 1000,
+      Math.round(tp * 0.97), Math.round(tp * 1.03),
+      Math.round(thr * 0.88), Math.round(thr * 0.95),
+      `Set ${i + 1}/${sets} — 1km race pace`));
+    // 500m hard
+    steps.push(makeStep(order++, 'work', 'distance', 500,
+      Math.round(tp * 0.85), Math.round(tp * 0.92),
+      Math.round(thr * 0.93), Math.round(thr * 1.0),
+      `Set ${i + 1}/${sets} — 500m hard`));
+    // 500m recovery pace (no rest, just slower running)
+    steps.push(makeStep(order++, 'work', 'distance', 500,
+      Math.round(tp * 1.15), Math.round(tp * 1.25),
+      Math.round(thr * 0.72), Math.round(thr * 0.82),
+      `Set ${i + 1}/${sets} — 500m recovery pace`));
+  }
+
+  steps.push(makeStep(order, 'cooldown', 'time', cooldown, null, null, null, null, 'Cool down'));
+
   return {
     session_date: format(date, 'yyyy-MM-dd'),
-    title: 'Tempo Run',
+    title: `${sets}x2km Tempo Intervals`,
     session_type: 'tempo',
     primary_target: 'pace',
-    notes: 'Comfortably hard. Zone 3-4 effort.' + weekNote,
-    steps: [
-      makeStep(0, 'warmup', 'time', warmup, null, null, null, null, 'Easy warmup with strides'),
-      makeStep(1, 'work', 'time', easyBefore, Math.round(tp * 1.1), Math.round(tp * 1.2), null, null, 'Easy transition'),
-      makeStep(2, 'work', 'time', tempoTime, Math.round(tp * 0.98), Math.round(tp * 1.05), Math.round(thr * 0.88), Math.round(thr * 0.95), 'Tempo effort'),
-      makeStep(3, 'cooldown', 'time', cooldown, null, null, null, null, 'Cool down'),
-    ],
+    notes: `Continuous tempo: 1km race pace / 500m hard / 500m recovery pace. No stopping.` + weekNote,
+    steps,
   };
 }
 
-function createIntervalSession(date: Date, mins: number, tp: number, thr: number, weekNote: string = ''): GeneratedSession {
+/**
+ * Interval session: distance-based reps.
+ * - Rep distance: 2km normally, 1km during taper
+ * - Reps: 4 early → 8-10 late
+ * - Recovery: 60s early → 50s late, standing/walking recovery (no jog)
+ */
+function createIntervalSession(date: Date, mins: number, tp: number, thr: number, phase: number, isTaper: boolean, weekNote: string = ''): GeneratedSession {
   const warmup = 600;
   const cooldown = 300;
-  const remaining = mins * 60 - warmup - cooldown;
-  const reps = Math.max(3, Math.min(8, Math.floor(remaining / 240)));
-  const workTime = 120;
-  const recoveryTime = Math.round((remaining - reps * workTime) / (reps - 1));
+
+  const repDistance = isTaper ? 1000 : 2000; // meters
+  const repLabel = isTaper ? '1km' : '2km';
+
+  // Reps: lerp from 4 to 10 based on phase, cap at 8 during taper
+  let reps: number;
+  if (isTaper) {
+    reps = 4;
+  } else {
+    reps = Math.round(4 + phase * 6); // 4 → 10
+    reps = Math.max(4, Math.min(10, reps));
+  }
+
+  // Recovery: 60s early → 50s late
+  const recoveryTime = Math.round(60 - phase * 10); // 60 → 50
 
   const steps: GeneratedStep[] = [
     makeStep(0, 'warmup', 'time', warmup, null, null, null, null, 'Easy warmup with 4 strides'),
@@ -241,19 +308,23 @@ function createIntervalSession(date: Date, mins: number, tp: number, thr: number
 
   let order = 1;
   for (let i = 0; i < reps; i++) {
-    steps.push(makeStep(order++, 'work', 'time', workTime, Math.round(tp * 0.85), Math.round(tp * 0.92), Math.round(thr * 0.92), Math.round(thr * 1.02), `Rep ${i + 1}/${reps}`));
+    steps.push(makeStep(order++, 'work', 'distance', repDistance,
+      Math.round(tp * 0.85), Math.round(tp * 0.92),
+      Math.round(thr * 0.92), Math.round(thr * 1.02),
+      `Rep ${i + 1}/${reps} — ${repLabel}`));
     if (i < reps - 1) {
-      steps.push(makeStep(order++, 'recover', 'time', recoveryTime, null, null, null, null, 'Easy jog recovery'));
+      steps.push(makeStep(order++, 'recover', 'time', recoveryTime,
+        null, null, null, null, `${recoveryTime}s recovery`));
     }
   }
   steps.push(makeStep(order, 'cooldown', 'time', cooldown, null, null, null, null, 'Cool down'));
 
   return {
     session_date: format(date, 'yyyy-MM-dd'),
-    title: `${reps}x${workTime / 60}min Intervals`,
+    title: `${reps}x${repLabel} Intervals`,
     session_type: 'interval',
     primary_target: 'pace',
-    notes: 'Hard intervals with jog recovery. Push Zone 4-5.' + weekNote,
+    notes: `Hard ${repLabel} reps with ${recoveryTime}s standing recovery. Zone 4-5.` + weekNote,
     steps,
   };
 }
@@ -275,6 +346,60 @@ function createRaceSimSession(date: Date, mins: number, tp: number, thr: number,
       makeStep(3, 'work', 'time', Math.round(main * 0.2), Math.round(tp * 0.88), Math.round(tp * 0.95), null, null, 'Push finish'),
       makeStep(4, 'cooldown', 'time', cooldown, null, null, null, null, 'Cool down'),
     ],
+  };
+}
+
+/**
+ * Spartan obstacle training session.
+ * Phases shift focus: early = grip/carry foundations, mid = race simulation, late = speed + obstacles.
+ */
+function createObstacleSession(date: Date, mins: number, thr: number, phase: number, weekNote: string = ''): GeneratedSession {
+  const totalSec = mins * 60;
+  const warmup = Math.min(600, Math.round(totalSec * 0.15));
+  const cooldown = Math.min(300, Math.round(totalSec * 0.1));
+  const mainTime = totalSec - warmup - cooldown;
+
+  // Rotate between obstacle focus areas based on phase
+  const steps: GeneratedStep[] = [
+    makeStep(0, 'warmup', 'time', warmup, null, null, Math.round(thr * 0.6), Math.round(thr * 0.75), 'Dynamic warmup: arm circles, leg swings, bear crawls'),
+  ];
+
+  let order = 1;
+
+  if (phase < 0.4) {
+    // Early phase: grip & carry foundations
+    const blockTime = Math.round(mainTime / 4);
+    steps.push(makeStep(order++, 'work', 'time', blockTime, null, null, null, null, 'Dead hangs & farmers carry – build grip endurance'));
+    steps.push(makeStep(order++, 'work', 'time', blockTime, null, null, null, null, 'Bucket carry simulation – heavy pack walk'));
+    steps.push(makeStep(order++, 'work', 'time', blockTime, null, null, null, null, 'Burpee sets: 5 burpees EMOM'));
+    steps.push(makeStep(order++, 'work', 'time', blockTime, null, null, Math.round(thr * 0.8), Math.round(thr * 0.9), 'Trail run with elevation changes'));
+  } else if (phase < 0.7) {
+    // Mid phase: race simulation circuits
+    const rounds = Math.max(3, Math.min(6, Math.floor(mainTime / 300)));
+    const roundTime = Math.round(mainTime / rounds);
+    for (let i = 0; i < rounds; i++) {
+      steps.push(makeStep(order++, 'work', 'time', roundTime, null, null, Math.round(thr * 0.82), Math.round(thr * 0.95),
+        `Circuit ${i + 1}/${rounds}: Run 400m → 10 burpees → carry → rope climb simulation`));
+    }
+  } else {
+    // Late phase: speed + obstacle transitions
+    const blockTime = Math.round(mainTime / 5);
+    steps.push(makeStep(order++, 'work', 'time', blockTime, null, null, null, null, 'Wall climb practice – technique focus'));
+    steps.push(makeStep(order++, 'work', 'time', blockTime, null, null, Math.round(thr * 0.9), Math.round(thr * 1.0), 'Sprint → burpee penalty sets'));
+    steps.push(makeStep(order++, 'work', 'time', blockTime, null, null, null, null, 'Rope & monkey bar grip work'));
+    steps.push(makeStep(order++, 'work', 'time', blockTime, null, null, Math.round(thr * 0.85), Math.round(thr * 0.95), 'Sandbag carry intervals'));
+    steps.push(makeStep(order++, 'work', 'time', blockTime, null, null, null, null, 'Spear throw practice & atlas stone simulation'));
+  }
+
+  steps.push(makeStep(order, 'cooldown', 'time', cooldown, null, null, null, null, 'Stretch & mobility: shoulders, forearms, hips'));
+
+  return {
+    session_date: format(date, 'yyyy-MM-dd'),
+    title: 'Obstacle Training',
+    session_type: 'obstacle',
+    primary_target: 'hr',
+    notes: `Spartan-specific obstacle preparation. ${phase < 0.4 ? 'Foundation phase: grip & carry.' : phase < 0.7 ? 'Race simulation circuits.' : 'Speed & transition drills.'}` + weekNote,
+    steps,
   };
 }
 

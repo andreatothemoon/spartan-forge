@@ -65,6 +65,7 @@ export type Database = {
           days_available_json: Json
           id: string
           max_minutes_by_day_json: Json
+          obstacle_sessions_per_week: number
           preferred_long_run_day: string
           start_date: string
           updated_at: string
@@ -76,6 +77,7 @@ export type Database = {
           days_available_json?: Json
           id?: string
           max_minutes_by_day_json?: Json
+          obstacle_sessions_per_week?: number
           preferred_long_run_day?: string
           start_date?: string
           updated_at?: string
@@ -87,6 +89,7 @@ export type Database = {
           days_available_json?: Json
           id?: string
           max_minutes_by_day_json?: Json
+          obstacle_sessions_per_week?: number
           preferred_long_run_day?: string
           start_date?: string
           updated_at?: string

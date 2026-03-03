@@ -118,6 +118,7 @@ export default function Dashboard() {
         weekendLongRunAvoid: avail.weekend_long_run_avoid,
         thresholdPace: profile.threshold_pace_sec_per_km || undefined,
         thresholdHr: profile.threshold_hr || undefined,
+        obstacleSessionsPerWeek: (avail as any).obstacle_sessions_per_week ?? 2,
       });
 
       let planId: string;
