@@ -8,11 +8,12 @@ type Session = Tables<'sessions'>;
 const TYPE_COLORS: Record<string, string> = {
   easy: 'hsl(152, 55%, 46%)',
   tempo: 'hsl(38, 85%, 55%)',
-  interval: 'hsl(0, 65%, 55%)',
+  interval: 'hsl(348, 70%, 50%)',
   long: 'hsl(260, 55%, 58%)',
   recovery: 'hsl(175, 55%, 45%)',
   race_sim: 'hsl(330, 65%, 55%)',
   strength: 'hsl(215, 45%, 55%)',
+  obstacle: 'hsl(28, 80%, 50%)',
 };
 
 export default function SessionTypeChart({ sessions }: { sessions: Session[] }) {
