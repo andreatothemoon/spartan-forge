@@ -124,72 +124,83 @@ export default function SessionEditor() {
 
   return (
     <AppLayout>
-      <div className="max-w-3xl mx-auto space-y-6">
+      <motion.div
+        className="max-w-3xl mx-auto space-y-6"
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: 'easeOut' }}
+      >
+        {/* Header */}
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
+          <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="text-muted-foreground hover:text-foreground">
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <h1 className="text-xl font-bold tracking-tight flex-1">Edit Session</h1>
-          <Button onClick={handleSave} disabled={saving} className="glow-primary">
+          <div className="flex-1">
+            <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Session Editor</p>
+            <h1 className="text-xl font-bold tracking-tight">{title || 'Untitled Session'}</h1>
+          </div>
+          <Button onClick={handleSave} disabled={saving} className="glow-primary font-semibold">
             <Save className="h-4 w-4 mr-2" />{saving ? 'Saving...' : 'Save'}
           </Button>
         </div>
 
         {/* Session Meta */}
-        <Card className="border-border/50">
-          <CardContent className="pt-4 space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Title</Label>
-                <Input value={title} onChange={e => setTitle(e.target.value)} className="font-medium" />
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+          <Card className="glass-card">
+            <CardContent className="pt-5 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Title</Label>
+                  <Input value={title} onChange={e => setTitle(e.target.value)} className="font-medium bg-muted/50 border-border/50 focus:border-primary/50" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Date</Label>
+                  <Input type="date" value={sessionDate} onChange={e => setSessionDate(e.target.value)} className="font-mono bg-muted/50 border-border/50 focus:border-primary/50" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Type</Label>
+                  <Select value={sessionType} onValueChange={setSessionType}>
+                    <SelectTrigger className="bg-muted/50 border-border/50"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {SESSION_TYPES.map(t => (
+                        <SelectItem key={t} value={t}>{SESSION_TYPE_LABELS[t]}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Primary Target</Label>
+                  <Select value={primaryTarget} onValueChange={setPrimaryTarget}>
+                    <SelectTrigger className="bg-muted/50 border-border/50"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pace">Pace</SelectItem>
+                      <SelectItem value="hr">Heart Rate</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <div className="space-y-2">
-                <Label>Date</Label>
-                <Input type="date" value={sessionDate} onChange={e => setSessionDate(e.target.value)} className="font-mono" />
+                <Label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Notes</Label>
+                <Input value={notes} onChange={e => setNotes(e.target.value)} placeholder="Session notes..." className="bg-muted/50 border-border/50 focus:border-primary/50" />
               </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Type</Label>
-                <Select value={sessionType} onValueChange={setSessionType}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {SESSION_TYPES.map(t => (
-                      <SelectItem key={t} value={t}>{SESSION_TYPE_LABELS[t]}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Primary Target</Label>
-                <Select value={primaryTarget} onValueChange={setPrimaryTarget}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pace">Pace</SelectItem>
-                    <SelectItem value="hr">Heart Rate</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Notes</Label>
-              <Input value={notes} onChange={e => setNotes(e.target.value)} placeholder="Session notes..." />
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </motion.div>
 
         {/* Steps */}
-        <div className="space-y-3">
+        <motion.div className="space-y-3" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Workout Steps</h2>
-            <Button variant="secondary" size="sm" onClick={addStep}>
+            <h2 className="text-[10px] font-mono font-semibold uppercase tracking-widest text-muted-foreground">Workout Steps</h2>
+            <Button variant="secondary" size="sm" onClick={addStep} className="border-border/50 hover:border-primary/30">
               <Plus className="h-3.5 w-3.5 mr-1" />Add Step
             </Button>
           </div>
 
           {steps.length === 0 ? (
-            <Card className="border-border/50 border-dashed">
-              <CardContent className="py-8 text-center">
+            <Card className="glass-card border-dashed">
+              <CardContent className="py-10 text-center">
                 <p className="text-sm text-muted-foreground">No steps yet. Add steps to define the workout structure.</p>
               </CardContent>
             </Card>
@@ -199,20 +210,20 @@ export default function SessionEditor() {
                 key={step.id}
                 initial={{ opacity: 0, y: 5 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.03 }}
+                transition={{ delay: 0.25 + i * 0.03 }}
               >
-                <Card className="border-border/50">
+                <Card className="glass-card hover:border-primary/20 transition-colors">
                   <CardContent className="py-3 px-4">
                     <div className="flex items-start gap-3">
                       <div className="flex items-center gap-1 pt-2 text-muted-foreground">
                         <GripVertical className="h-4 w-4" />
-                        <span className="font-mono text-xs w-4">{i + 1}</span>
+                        <span className="font-mono text-[10px] text-primary/70 w-4">{i + 1}</span>
                       </div>
                       <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-3">
                         <div className="space-y-1">
-                          <Label className="text-[10px] text-muted-foreground">Type</Label>
+                          <Label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Type</Label>
                           <Select value={step.step_type} onValueChange={v => updateStep(i, { step_type: v })}>
-                            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                            <SelectTrigger className="h-8 text-xs bg-muted/50 border-border/50"><SelectValue /></SelectTrigger>
                             <SelectContent>
                               {STEP_TYPES.map(t => (
                                 <SelectItem key={t} value={t} className="text-xs capitalize">{t}</SelectItem>
@@ -221,7 +232,7 @@ export default function SessionEditor() {
                           </Select>
                         </div>
                         <div className="space-y-1">
-                          <Label className="text-[10px] text-muted-foreground">Duration</Label>
+                          <Label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Duration</Label>
                           <div className="flex gap-1">
                             <Input
                               type="number"
@@ -231,10 +242,10 @@ export default function SessionEditor() {
                                   ? parseInt(e.target.value) * 60
                                   : parseInt(e.target.value),
                               })}
-                              className="h-8 text-xs font-mono w-16"
+                              className="h-8 text-xs font-mono w-16 bg-muted/50 border-border/50"
                             />
                             <Select value={step.duration_type} onValueChange={v => updateStep(i, { duration_type: v })}>
-                              <SelectTrigger className="h-8 text-xs w-16"><SelectValue /></SelectTrigger>
+                              <SelectTrigger className="h-8 text-xs w-16 bg-muted/50 border-border/50"><SelectValue /></SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="time" className="text-xs">min</SelectItem>
                                 <SelectItem value="distance" className="text-xs">m</SelectItem>
@@ -243,43 +254,43 @@ export default function SessionEditor() {
                           </div>
                         </div>
                         <div className="space-y-1">
-                          <Label className="text-[10px] text-muted-foreground">Pace (/km)</Label>
+                          <Label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Pace (/km)</Label>
                           <div className="flex gap-1">
                             <Input
                               value={step.target_pace_low_sec_per_km ? secPerKmToDisplay(step.target_pace_low_sec_per_km) : ''}
                               onChange={e => updateStep(i, { target_pace_low_sec_per_km: displayToSecPerKm(e.target.value) || null })}
                               placeholder="5:00"
-                              className="h-8 text-xs font-mono w-14"
+                              className="h-8 text-xs font-mono w-14 bg-muted/50 border-border/50"
                             />
                             <Input
                               value={step.target_pace_high_sec_per_km ? secPerKmToDisplay(step.target_pace_high_sec_per_km) : ''}
                               onChange={e => updateStep(i, { target_pace_high_sec_per_km: displayToSecPerKm(e.target.value) || null })}
                               placeholder="6:00"
-                              className="h-8 text-xs font-mono w-14"
+                              className="h-8 text-xs font-mono w-14 bg-muted/50 border-border/50"
                             />
                           </div>
                         </div>
                         <div className="space-y-1">
-                          <Label className="text-[10px] text-muted-foreground">HR (bpm)</Label>
+                          <Label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">HR (bpm)</Label>
                           <div className="flex gap-1">
                             <Input
                               type="number"
                               value={step.target_hr_low_bpm || ''}
                               onChange={e => updateStep(i, { target_hr_low_bpm: parseInt(e.target.value) || null })}
                               placeholder="140"
-                              className="h-8 text-xs font-mono w-14"
+                              className="h-8 text-xs font-mono w-14 bg-muted/50 border-border/50"
                             />
                             <Input
                               type="number"
                               value={step.target_hr_high_bpm || ''}
                               onChange={e => updateStep(i, { target_hr_high_bpm: parseInt(e.target.value) || null })}
                               placeholder="160"
-                              className="h-8 text-xs font-mono w-14"
+                              className="h-8 text-xs font-mono w-14 bg-muted/50 border-border/50"
                             />
                           </div>
                         </div>
                       </div>
-                      <Button variant="ghost" size="sm" onClick={() => removeStep(i)} className="text-destructive hover:text-destructive shrink-0 mt-4">
+                      <Button variant="ghost" size="sm" onClick={() => removeStep(i)} className="text-destructive/70 hover:text-destructive shrink-0 mt-4">
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </div>
@@ -288,7 +299,7 @@ export default function SessionEditor() {
                         value={step.step_notes || ''}
                         onChange={e => updateStep(i, { step_notes: e.target.value || null })}
                         placeholder="Step notes..."
-                        className="h-7 text-xs"
+                        className="h-7 text-xs bg-muted/50 border-border/50"
                       />
                     </div>
                   </CardContent>
@@ -296,8 +307,8 @@ export default function SessionEditor() {
               </motion.div>
             ))
           )}
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
     </AppLayout>
   );
 }
