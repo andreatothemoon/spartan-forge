@@ -62,6 +62,7 @@
     --session-recovery: 175 55% 45%;
     --session-race-sim: 330 65% 55%;
     --session-strength: 215 45% 55%;
+    --session-obstacle: 28 80% 50%;
   }
 
   * {

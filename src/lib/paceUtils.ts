@@ -56,10 +56,10 @@ export const DAY_LABELS: Record<string, string> = {
   fri: 'Friday', sat: 'Saturday', sun: 'Sunday',
 };
 
-export const SESSION_TYPES = ['easy', 'interval', 'tempo', 'long', 'recovery', 'race_sim', 'strength'] as const;
+export const SESSION_TYPES = ['easy', 'interval', 'tempo', 'long', 'recovery', 'race_sim', 'strength', 'obstacle'] as const;
 export const SESSION_TYPE_LABELS: Record<string, string> = {
   easy: 'Easy Run', interval: 'Intervals', tempo: 'Tempo', long: 'Long Run',
-  recovery: 'Recovery', race_sim: 'Race Sim', strength: 'Strength',
+  recovery: 'Recovery', race_sim: 'Race Sim', strength: 'Strength', obstacle: 'Obstacle',
 };
 
 export const STEP_TYPES = ['warmup', 'work', 'recover', 'cooldown'] as const;

@@ -18,6 +18,7 @@ const SESSION_DOT_COLORS: Record<string, string> = {
   recovery: 'bg-session-recovery',
   race_sim: 'bg-session-race-sim',
   strength: 'bg-session-strength',
+  obstacle: 'bg-session-obstacle',
 };
 
 interface MonthlyViewProps {
