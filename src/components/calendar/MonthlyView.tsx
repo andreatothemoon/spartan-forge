@@ -61,56 +61,72 @@ export default function MonthlyView({ sessions, currentMonth }: MonthlyViewProps
       </div>
 
       {/* Weeks */}
-      {weeks.map((week, wi) => (
-        <motion.div
-          key={wi}
-          initial={{ opacity: 0, y: 4 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: wi * 0.03 }}
-          className="grid grid-cols-7 gap-1.5 mb-1.5"
-        >
-          {week.map(day => {
-            const inMonth = isSameMonth(day, currentMonth);
-            const isToday = isSameDay(day, today);
-            const daySessions = sessions.filter(s => isSameDay(parseISO(s.session_date), day));
+      {weeks.map((week, wi) => {
+        const weekSessions = sessions.filter(s =>
+          week.some(day => isSameDay(parseISO(s.session_date), day))
+        );
+        const completedCount = weekSessions.filter(s => s.completed).length;
 
-            return (
-              <div
-                key={day.toISOString()}
-                className={`min-h-[90px] rounded-lg border p-2 transition-all ${
-                  !inMonth ? 'border-border/10 opacity-20' : 'border-border/30 hover:border-border/50'
-                } ${isToday ? 'ring-1 ring-primary/40 bg-primary/5 border-primary/20' : ''}`}
-              >
-                <div className={`text-[10px] font-mono mb-1.5 ${
-                  isToday ? 'text-primary font-bold' : 'text-muted-foreground'
-                }`}>
-                  {format(day, 'd')}
-                </div>
-                <div className="space-y-1">
-                  {daySessions.slice(0, 2).map(s => (
-                    <div
-                      key={s.id}
-                      className={`flex items-center gap-1.5 px-1.5 py-1 rounded-md cursor-pointer hover:bg-primary/10 transition-colors group ${
-                        s.completed ? 'opacity-40' : ''
-                      }`}
-                      onClick={() => navigate(`/session/${s.id}`)}
-                    >
-                      <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${SESSION_DOT_COLORS[s.session_type] || 'bg-muted-foreground'}`} />
-                      <span className="text-[9px] font-medium truncate text-foreground/80 group-hover:text-primary transition-colors">
-                        {s.title}
-                      </span>
-                      {s.completed && <CheckCircle2 className="h-2.5 w-2.5 text-success shrink-0 ml-auto" />}
+        return (
+          <div key={wi} className="mb-1.5">
+            <motion.div
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: wi * 0.03 }}
+              className="grid grid-cols-7 gap-1.5"
+            >
+              {week.map(day => {
+                const inMonth = isSameMonth(day, currentMonth);
+                const isToday = isSameDay(day, today);
+                const daySessions = sessions.filter(s => isSameDay(parseISO(s.session_date), day));
+
+                return (
+                  <div
+                    key={day.toISOString()}
+                    className={`min-h-[90px] rounded-lg border p-2 transition-all ${
+                      !inMonth ? 'border-border/10 opacity-20' : 'border-border/30 hover:border-border/50'
+                    } ${isToday ? 'ring-1 ring-primary/40 bg-primary/5 border-primary/20' : ''}`}
+                  >
+                    <div className={`text-[10px] font-mono mb-1.5 ${
+                      isToday ? 'text-primary font-bold' : 'text-muted-foreground'
+                    }`}>
+                      {format(day, 'd')}
                     </div>
-                  ))}
-                  {daySessions.length > 2 && (
-                    <span className="text-[8px] text-muted-foreground/60 px-1.5">+{daySessions.length - 2} more</span>
-                  )}
-                </div>
+                    <div className="space-y-1">
+                      {daySessions.slice(0, 2).map(s => (
+                        <div
+                          key={s.id}
+                          className={`flex items-center gap-1.5 px-1.5 py-1 rounded-md cursor-pointer hover:bg-primary/10 transition-colors group ${
+                            s.completed ? 'opacity-40' : ''
+                          }`}
+                          onClick={() => navigate(`/session/${s.id}`)}
+                        >
+                          <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${SESSION_DOT_COLORS[s.session_type] || 'bg-muted-foreground'}`} />
+                          <span className="text-[9px] font-medium truncate text-foreground/80 group-hover:text-primary transition-colors">
+                            {s.title}
+                          </span>
+                          {s.completed && <CheckCircle2 className="h-2.5 w-2.5 text-success shrink-0 ml-auto" />}
+                        </div>
+                      ))}
+                      {daySessions.length > 2 && (
+                        <span className="text-[8px] text-muted-foreground/60 px-1.5">+{daySessions.length - 2} more</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </motion.div>
+            {/* Weekly summary row */}
+            {weekSessions.length > 0 && (
+              <div className="flex items-center justify-end gap-3 px-2 py-1 mt-0.5">
+                <span className="text-[9px] font-mono text-muted-foreground/50">
+                  {weekSessions.length} sessions · {completedCount}/{weekSessions.length} done
+                </span>
               </div>
-            );
-          })}
-        </motion.div>
-      ))}
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

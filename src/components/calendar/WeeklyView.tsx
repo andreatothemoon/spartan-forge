@@ -40,61 +40,85 @@ export default function WeeklyView({ sessions, weekStart }: WeeklyViewProps) {
   const navigate = useNavigate();
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
-  return (
-    <div className="grid grid-cols-1 sm:grid-cols-7 gap-2">
-      {days.map((day, di) => {
-        const daySessions = sessions.filter(s => isSameDay(parseISO(s.session_date), day));
-        const isToday = isSameDay(day, new Date());
+  // Calculate weekly total minutes from session steps or estimate from session count
+  const weekSessions = sessions.filter(s => {
+    const d = parseISO(s.session_date);
+    return days.some(day => isSameDay(d, day));
+  });
+  const totalMinutes = weekSessions.length * 45; // Approximate; real duration would need steps
 
-        return (
-          <motion.div
-            key={day.toISOString()}
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: di * 0.03 }}
-            className="space-y-1.5"
-          >
-            <div className={`text-xs font-mono text-center py-1.5 rounded-lg transition-colors ${
-              isToday ? 'bg-primary/10 text-primary border border-primary/20' : 'text-muted-foreground'
-            }`}>
-              <div className="font-semibold">{format(day, 'EEE')}</div>
-              <div className={isToday ? 'font-bold' : ''}>{format(day, 'd')}</div>
-            </div>
-            <div className="min-h-[120px] space-y-1.5">
-              {daySessions.length === 0 ? (
-                <div className="h-full flex items-center justify-center min-h-[80px]">
-                  <span className="text-[10px] text-muted-foreground/30 uppercase tracking-widest">Rest</span>
-                </div>
-              ) : (
-                daySessions.map(s => (
-                  <Card
-                    key={s.id}
-                    className={`border-border/30 cursor-pointer hover:border-primary/30 transition-all group ${
-                      s.completed ? 'opacity-50' : ''
-                    }`}
-                    onClick={() => navigate(`/session/${s.id}`)}
-                  >
-                    <CardContent className="p-2.5">
-                      <div className="flex items-center gap-1.5 mb-1.5">
-                        <div className={`w-2 h-2 rounded-full shrink-0 ${SESSION_DOT_COLORS[s.session_type] || 'bg-muted-foreground'}`} />
-                        <span className="text-[11px] font-medium truncate text-foreground group-hover:text-primary transition-colors">
-                          {s.title}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <Badge variant="outline" className={`text-[9px] px-1.5 py-0 rounded font-medium ${SESSION_COLORS[s.session_type] || ''}`}>
-                          {SESSION_TYPE_LABELS[s.session_type] || s.session_type}
-                        </Badge>
-                        {s.completed && <CheckCircle2 className="h-3 w-3 text-success" />}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
-              )}
-            </div>
-          </motion.div>
-        );
-      })}
+  return (
+    <div className="space-y-3">
+      {/* Weekly volume summary */}
+      <div className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-secondary/40 border border-border/20">
+        <div className="flex items-center gap-2">
+          <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse-glow" />
+          <span className="text-xs font-mono text-muted-foreground">Week Total</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-sm font-semibold text-foreground font-mono">{weekSessions.length} sessions</span>
+          <span className="text-[10px] text-muted-foreground/60">•</span>
+          <span className="text-xs text-muted-foreground font-mono">
+            {weekSessions.filter(s => s.completed).length}/{weekSessions.length} done
+          </span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-7 gap-2">
+        {days.map((day, di) => {
+          const daySessions = sessions.filter(s => isSameDay(parseISO(s.session_date), day));
+          const isToday = isSameDay(day, new Date());
+
+          return (
+            <motion.div
+              key={day.toISOString()}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: di * 0.03 }}
+              className="space-y-1.5"
+            >
+              <div className={`text-xs font-mono text-center py-1.5 rounded-lg transition-colors ${
+                isToday ? 'bg-primary/10 text-primary border border-primary/20' : 'text-muted-foreground'
+              }`}>
+                <div className="font-semibold">{format(day, 'EEE')}</div>
+                <div className={isToday ? 'font-bold' : ''}>{format(day, 'd')}</div>
+              </div>
+              <div className="min-h-[120px] space-y-1.5">
+                {daySessions.length === 0 ? (
+                  <div className="h-full flex items-center justify-center min-h-[80px]">
+                    <span className="text-[10px] text-muted-foreground/30 uppercase tracking-widest">Rest</span>
+                  </div>
+                ) : (
+                  daySessions.map(s => (
+                    <Card
+                      key={s.id}
+                      className={`border-border/30 cursor-pointer hover:border-primary/30 transition-all group ${
+                        s.completed ? 'opacity-50' : ''
+                      }`}
+                      onClick={() => navigate(`/session/${s.id}`)}
+                    >
+                      <CardContent className="p-2.5">
+                        <div className="flex items-center gap-1.5 mb-1.5">
+                          <div className={`w-2 h-2 rounded-full shrink-0 ${SESSION_DOT_COLORS[s.session_type] || 'bg-muted-foreground'}`} />
+                          <span className="text-[11px] font-medium truncate text-foreground group-hover:text-primary transition-colors">
+                            {s.title}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <Badge variant="outline" className={`text-[9px] px-1.5 py-0 rounded font-medium ${SESSION_COLORS[s.session_type] || ''}`}>
+                            {SESSION_TYPE_LABELS[s.session_type] || s.session_type}
+                          </Badge>
+                          {s.completed && <CheckCircle2 className="h-3 w-3 text-success" />}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
+              </div>
+            </motion.div>
+          );
+        })}
+      </div>
     </div>
   );
 }
