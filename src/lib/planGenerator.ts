@@ -217,19 +217,26 @@ function createEasyRun(date: Date, mins: number, tp: number, thr: number, weekNo
 }
 
 function createLongRun(date: Date, mins: number, tp: number, thr: number, phase: number, weekNote: string = ''): GeneratedSession {
-  const warmup = 600;
-  const cooldown = 600;
-  const main = mins * 60 - warmup - cooldown;
+  // Convert planned minutes to distance in meters using threshold pace
+  // Average long run pace ~115% of threshold pace
+  const avgPaceSec = tp * 1.15;
+  const totalDistanceKm = (mins * 60) / avgPaceSec;
+  const totalDistanceM = Math.round(totalDistanceKm * 1000);
+
+  const warmupM = 1000;
+  const cooldownM = 1000;
+  const mainM = Math.max(1000, totalDistanceM - warmupM - cooldownM);
+
   return {
     session_date: format(date, 'yyyy-MM-dd'),
-    title: 'Long Run',
+    title: `${Math.round(totalDistanceKm)}km Long Run`,
     session_type: 'long',
     primary_target: 'hr',
     notes: `Build endurance. ${phase > 0.5 ? 'Include some tempo segments in the last third.' : 'Stay in Zone 2 throughout.'}` + weekNote,
     steps: [
-      makeStep(0, 'warmup', 'time', warmup, null, null, Math.round(thr * 0.65), Math.round(thr * 0.75), 'Easy warmup'),
-      makeStep(1, 'work', 'time', main, Math.round(tp * 1.1), Math.round(tp * 1.25), Math.round(thr * 0.75), Math.round(thr * 0.85), 'Steady, Zone 2'),
-      makeStep(2, 'cooldown', 'time', cooldown, null, null, null, null, 'Easy cooldown'),
+      makeStep(0, 'warmup', 'distance', warmupM, null, null, Math.round(thr * 0.65), Math.round(thr * 0.75), '1km easy warmup'),
+      makeStep(1, 'work', 'distance', mainM, Math.round(tp * 1.1), Math.round(tp * 1.25), Math.round(thr * 0.75), Math.round(thr * 0.85), `${(mainM / 1000).toFixed(1)}km steady, Zone 2`),
+      makeStep(2, 'cooldown', 'distance', cooldownM, null, null, null, null, '1km easy cooldown'),
     ],
   };
 }
