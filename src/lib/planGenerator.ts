@@ -142,15 +142,25 @@ export function generatePlan(input: GenerateInput): GeneratedSession[] {
       sessions.push(createLongRun(longRunDate, duration, tp, thr, phase, weekNote));
     }
 
-    // Quality sessions
-    const qualityTypes = phase < 0.3 ? ['tempo'] : phase < 0.7 ? ['interval', 'tempo'] : ['interval', 'race_sim'];
+    // Quality sessions — alternate tempo and interval each week
     for (let i = 0; i < qualityDays.length; i++) {
       const day = qualityDays[i];
       const date = getDateForDay(weekStart, day);
       if (date > raceDate) continue;
       const maxMins = maxMinutes[day] || 45;
       const dur = Math.round(maxMins * volumeFactor);
-      const type = qualityTypes[i % qualityTypes.length];
+
+      // Determine type: alternate week-by-week, and slot-by-slot
+      // Late phase (>70%) introduces race_sim on one slot
+      let type: string;
+      if (phase >= 0.7 && i === 1) {
+        type = 'race_sim';
+      } else {
+        // Alternate: even weeks start with tempo, odd weeks start with interval
+        const slotIndex = (week + i) % 2;
+        type = slotIndex === 0 ? 'tempo' : 'interval';
+      }
+
       if (type === 'interval') {
         sessions.push(createIntervalSession(date, dur, tp, thr, phase, isTaperWeek, weekNote));
       } else if (type === 'race_sim') {
