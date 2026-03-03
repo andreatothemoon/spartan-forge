@@ -38,6 +38,7 @@ export default function Onboarding() {
   });
   const [longRunDay, setLongRunDay] = useState('fri');
   const [avoidWeekend, setAvoidWeekend] = useState(true);
+  const [obstacleSessionsPerWeek, setObstacleSessionsPerWeek] = useState(2);
 
   // Goal
   const [raceDate, setRaceDate] = useState('2026-09-26');
@@ -77,6 +78,7 @@ export default function Onboarding() {
       setMaxMinutes(a.max_minutes_by_day_json as Record<string, number>);
       setLongRunDay(a.preferred_long_run_day);
       setAvoidWeekend(a.weekend_long_run_avoid);
+      setObstacleSessionsPerWeek(a.obstacle_sessions_per_week ?? 2);
     }
     if (goalRes.data) {
       const g = goalRes.data;
@@ -118,6 +120,7 @@ export default function Onboarding() {
         max_minutes_by_day_json: maxMinutes,
         preferred_long_run_day: longRunDay,
         weekend_long_run_avoid: avoidWeekend,
+        obstacle_sessions_per_week: obstacleSessionsPerWeek,
       };
 
       if (availabilityId) {
@@ -247,6 +250,20 @@ export default function Onboarding() {
                       <Switch checked={avoidWeekend} onCheckedChange={setAvoidWeekend} />
                       <span className="text-sm text-muted-foreground">{avoidWeekend ? 'Yes' : 'No'}</span>
                     </div>
+                  </div>
+                </div>
+                <div className="pt-4 border-t border-border/50">
+                  <div className="space-y-2">
+                    <Label>Obstacle Training Sessions per Week</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={4}
+                      value={obstacleSessionsPerWeek}
+                      onChange={e => setObstacleSessionsPerWeek(Math.max(0, Math.min(4, parseInt(e.target.value) || 0)))}
+                      className="w-20 font-mono text-sm"
+                    />
+                    <p className="text-xs text-muted-foreground">Spartan-specific obstacle prep (grip, carry, burpees, walls). Uses easy day slots.</p>
                   </div>
                 </div>
               </CardContent>
