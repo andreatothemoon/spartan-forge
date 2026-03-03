@@ -38,7 +38,7 @@ export default function Auth() {
           >
             <Shield className="h-8 w-8 text-primary" />
           </motion.div>
-          <h1 className="text-3xl font-bold tracking-tight mb-2">SPARTAN OPS</h1>
+          <h1 className="text-3xl font-bold tracking-tight mb-2">SPARTAN FORGE</h1>
           <p className="text-muted-foreground text-sm font-mono tracking-wider uppercase">Training mission control</p>
         </div>
 
