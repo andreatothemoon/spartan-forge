@@ -11,8 +11,10 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
-import { User, Clock, Target, ChevronRight, ChevronLeft, Check, Download, FileJson, Watch } from 'lucide-react';
+import { User, Clock, Target, ChevronRight, ChevronLeft, Check, Download, FileJson, Watch, Zap, RefreshCw } from 'lucide-react';
 import { DAYS, DAY_LABELS, secPerKmToDisplay, displayToSecPerKm, defaultPaceZones, defaultHrZones } from '@/lib/paceUtils';
+import { generatePlan } from '@/lib/planGenerator';
+import { format, parseISO } from 'date-fns';
 
 const STEPS = ['Athlete Profile', 'Availability', 'Race Goal'];
 
@@ -306,12 +308,127 @@ export default function Onboarding() {
           )}
         </div>
 
-        {/* Export Workouts — standalone section */}
+        {/* Regenerate Plan */}
         <div className="mt-10 pt-8 border-t border-border/30">
+          <RegeneratePlanSection />
+        </div>
+
+        {/* Export Workouts */}
+        <div className="mt-6 pt-6 border-t border-border/30">
           <ExportWorkoutsSection />
         </div>
       </div>
     </AppLayout>
+  );
+}
+
+/* ─── Regenerate Plan Section ─── */
+function RegeneratePlanSection() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [generating, setGenerating] = useState(false);
+
+  async function handleGenerate() {
+    if (!user) return;
+    setGenerating(true);
+    try {
+      const [profileRes, availRes, goalRes, planRes] = await Promise.all([
+        supabase.from('athlete_profiles').select('*').eq('user_id', user.id).maybeSingle(),
+        supabase.from('availability_profiles').select('*').eq('user_id', user.id).maybeSingle(),
+        supabase.from('training_goals').select('*').eq('user_id', user.id).maybeSingle(),
+        supabase.from('plans').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(1),
+      ]);
+
+      if (!profileRes.data || !availRes.data) {
+        toast.error('Complete your profile and availability first');
+        return;
+      }
+
+      const profile = profileRes.data;
+      const avail = availRes.data;
+      const goal = goalRes.data;
+      const existingPlan = planRes.data?.[0] || null;
+      const today = new Date();
+      const raceDateVal = goal?.race_date || '2026-09-26';
+
+      const generated = generatePlan({
+        startDate: today,
+        raceDate: parseISO(raceDateVal),
+        daysAvailable: avail.days_available_json as Record<string, boolean>,
+        maxMinutes: avail.max_minutes_by_day_json as Record<string, number>,
+        preferredLongRunDay: avail.preferred_long_run_day,
+        weekendLongRunAvoid: avail.weekend_long_run_avoid,
+        thresholdPace: profile.threshold_pace_sec_per_km || undefined,
+        thresholdHr: profile.threshold_hr || undefined,
+        obstacleSessionsPerWeek: (avail as any).obstacle_sessions_per_week ?? 2,
+      });
+
+      let planId: string;
+      if (existingPlan) {
+        await supabase.from('sessions').delete().eq('plan_id', existingPlan.id);
+        await supabase.from('plans').update({
+          start_date: format(today, 'yyyy-MM-dd'),
+          end_date: raceDateVal,
+          status: 'active',
+          athlete_profile_id: profile.id,
+          availability_profile_id: avail.id,
+          training_goal_id: goal?.id || null,
+        }).eq('id', existingPlan.id);
+        planId = existingPlan.id;
+      } else {
+        const { data: newPlan } = await supabase.from('plans').insert({
+          user_id: user.id,
+          plan_name: 'Spartan Ultra Plan',
+          start_date: format(today, 'yyyy-MM-dd'),
+          end_date: raceDateVal,
+          status: 'active',
+          athlete_profile_id: profile.id,
+          availability_profile_id: avail.id,
+          training_goal_id: goal?.id || null,
+        }).select('id').single();
+        if (!newPlan) throw new Error('Failed to create plan');
+        planId = newPlan.id;
+      }
+
+      for (const gs of generated) {
+        const { data: session } = await supabase.from('sessions').insert({
+          plan_id: planId,
+          session_date: gs.session_date,
+          title: gs.title,
+          session_type: gs.session_type,
+          primary_target: gs.primary_target,
+          notes: gs.notes,
+        }).select('id').single();
+
+        if (session && gs.steps.length > 0) {
+          await supabase.from('session_steps').insert(
+            gs.steps.map(st => ({ ...st, session_id: session.id }))
+          );
+        }
+      }
+
+      toast.success(`Generated ${generated.length} sessions`);
+      navigate('/dashboard');
+    } catch (err: any) {
+      toast.error(err.message || 'Generation failed');
+    }
+    setGenerating(false);
+  }
+
+  return (
+    <Card className="border-border/50">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2"><Zap className="h-5 w-5 text-primary" />Generate Plan</CardTitle>
+        <CardDescription>Create or regenerate your training plan based on current settings</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Button onClick={handleGenerate} disabled={generating} className="glow-primary w-full">
+          {generating ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Zap className="h-4 w-4 mr-2" />}
+          {generating ? 'Generating...' : 'Generate Training Plan'}
+        </Button>
+        <p className="text-xs text-muted-foreground mt-2">This will replace your current plan with a new one based on your profile, availability, and race goal.</p>
+      </CardContent>
+    </Card>
   );
 }
 
