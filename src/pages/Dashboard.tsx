@@ -230,7 +230,7 @@ export default function Dashboard() {
         {/* Week Stats Strip */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }} className="grid grid-cols-3 gap-3">
           <MiniStat icon={<Calendar className="h-3.5 w-3.5" />} label="This Week" value={`${completedThisWeek}/${totalThisWeek}`} />
-          <MiniStat icon={<TrendingUp className="h-3.5 w-3.5" />} label="Compliance" value={pastSessions.length > 0 ? `${compliancePct}%` : '—'} />
+          <MiniStat icon={<TrendingUp className="h-3.5 w-3.5" />} label="Plan Execution" value={pastSessions.length > 0 ? `${compliancePct}%` : '—'} />
           <MiniStat icon={<Target className="h-3.5 w-3.5" />} label="Completed" value={`${completedPast}`} />
         </motion.div>
 
