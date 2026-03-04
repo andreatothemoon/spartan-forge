@@ -11,7 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Save, Plus, Trash2, GripVertical } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Trash2, GripVertical, CheckCircle, Circle } from 'lucide-react';
+import { parseISO, isAfter, startOfDay } from 'date-fns';
 import { SESSION_TYPES, SESSION_TYPE_LABELS, STEP_TYPES, secPerKmToDisplay, displayToSecPerKm, secondsToDisplay } from '@/lib/paceUtils';
 import type { Tables } from '@/integrations/supabase/types';
 
@@ -26,6 +27,7 @@ export default function SessionEditor() {
   const [steps, setSteps] = useState<StepRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [completed, setCompleted] = useState(false);
 
   // Editable fields
   const [title, setTitle] = useState('');
@@ -49,6 +51,7 @@ export default function SessionEditor() {
       setPrimaryTarget(s.primary_target);
       setNotes(s.notes || '');
       setSessionDate(s.session_date);
+      setCompleted(s.completed);
     }
     const { data: st } = await supabase.from('session_steps').select('*').eq('session_id', id!).order('step_order', { ascending: true });
     setSteps(st || []);
@@ -65,6 +68,7 @@ export default function SessionEditor() {
         primary_target: primaryTarget,
         notes,
         session_date: sessionDate,
+        completed,
       }).eq('id', session.id);
 
       // Delete old steps and re-insert
@@ -139,6 +143,17 @@ export default function SessionEditor() {
             <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Session Editor</p>
             <h1 className="text-xl font-bold tracking-tight">{title || 'Untitled Session'}</h1>
           </div>
+          {!isAfter(parseISO(sessionDate), startOfDay(new Date())) && (
+            <Button
+              variant={completed ? "secondary" : "outline"}
+              size="sm"
+              onClick={() => setCompleted(c => !c)}
+              className={completed ? "text-success border-success/30" : "text-muted-foreground"}
+            >
+              {completed ? <CheckCircle className="h-4 w-4 mr-1.5" /> : <Circle className="h-4 w-4 mr-1.5" />}
+              {completed ? 'Done' : 'Mark Done'}
+            </Button>
+          )}
           <Button onClick={handleSave} disabled={saving} className="glow-primary font-semibold">
             <Save className="h-4 w-4 mr-2" />{saving ? 'Saving...' : 'Save'}
           </Button>
