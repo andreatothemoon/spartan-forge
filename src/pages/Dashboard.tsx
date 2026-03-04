@@ -12,7 +12,7 @@ import {
   Zap, Calendar, TrendingUp, RefreshCw, ArrowRight,
   Target, Play, ChevronRight,
 } from 'lucide-react';
-import { format, startOfWeek, endOfWeek, isWithinInterval, parseISO, differenceInDays } from 'date-fns';
+import { format, startOfWeek, endOfWeek, startOfDay, isWithinInterval, parseISO, differenceInDays } from 'date-fns';
 import { generatePlan } from '@/lib/planGenerator';
 import { SESSION_TYPE_LABELS } from '@/lib/paceUtils';
 import AICoachPanel from '@/components/dashboard/AICoachPanel';
@@ -78,7 +78,7 @@ export default function Dashboard() {
   const completedThisWeek = weekSessions.filter(s => s.completed).length;
   const totalThisWeek = weekSessions.length;
 
-  const pastSessions = sessions.filter(s => parseISO(s.session_date) < today);
+  const pastSessions = sessions.filter(s => parseISO(s.session_date) < startOfDay(today));
   const completedPast = pastSessions.filter(s => s.completed).length;
   const compliancePct = pastSessions.length > 0 ? Math.round(completedPast / pastSessions.length * 100) : 0;
 
