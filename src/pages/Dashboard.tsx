@@ -6,14 +6,12 @@ import AppLayout from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import {
-  Zap, Calendar, TrendingUp, RefreshCw, ArrowRight,
-  Target, Play, ChevronRight,
+  Calendar, TrendingUp,
+  Target, ChevronRight,
 } from 'lucide-react';
 import { format, startOfWeek, endOfWeek, startOfDay, isWithinInterval, parseISO, differenceInDays } from 'date-fns';
-import { generatePlan } from '@/lib/planGenerator';
 import { SESSION_TYPE_LABELS } from '@/lib/paceUtils';
 import AICoachPanel from '@/components/dashboard/AICoachPanel';
 import PlanOverviewWidget from '@/components/dashboard/PlanOverviewWidget';
@@ -40,7 +38,7 @@ export default function Dashboard() {
   const [plan, setPlan] = useState<Plan | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
-  const [generating, setGenerating] = useState(false);
+  
 
   const today = new Date();
   const weekStart = startOfWeek(today, { weekStartsOn: 1 });
@@ -89,90 +87,6 @@ export default function Dashboard() {
     .filter(s => !s.completed && parseISO(s.session_date) >= today)
     .slice(0, 4);
 
-  async function handleGenerate() {
-    if (!user) return;
-    setGenerating(true);
-    try {
-      const [profileRes, availRes, goalRes] = await Promise.all([
-        supabase.from('athlete_profiles').select('*').eq('user_id', user.id).maybeSingle(),
-        supabase.from('availability_profiles').select('*').eq('user_id', user.id).maybeSingle(),
-        supabase.from('training_goals').select('*').eq('user_id', user.id).maybeSingle(),
-      ]);
-
-      if (!profileRes.data || !availRes.data) {
-        toast.error('Complete your profile and availability first');
-        navigate('/onboarding');
-        return;
-      }
-
-      const profile = profileRes.data;
-      const avail = availRes.data;
-      const goal = goalRes.data;
-      const raceDateVal = goal?.race_date || '2026-09-26';
-
-      const generated = generatePlan({
-        startDate: today,
-        raceDate: parseISO(raceDateVal),
-        daysAvailable: avail.days_available_json as Record<string, boolean>,
-        maxMinutes: avail.max_minutes_by_day_json as Record<string, number>,
-        preferredLongRunDay: avail.preferred_long_run_day,
-        weekendLongRunAvoid: avail.weekend_long_run_avoid,
-        thresholdPace: profile.threshold_pace_sec_per_km || undefined,
-        thresholdHr: profile.threshold_hr || undefined,
-        obstacleSessionsPerWeek: (avail as any).obstacle_sessions_per_week ?? 2,
-      });
-
-      let planId: string;
-      if (plan) {
-        await supabase.from('sessions').delete().eq('plan_id', plan.id);
-        await supabase.from('plans').update({
-          start_date: format(today, 'yyyy-MM-dd'),
-          end_date: raceDateVal,
-          status: 'active',
-          athlete_profile_id: profile.id,
-          availability_profile_id: avail.id,
-          training_goal_id: goal?.id || null,
-        }).eq('id', plan.id);
-        planId = plan.id;
-      } else {
-        const { data: newPlan } = await supabase.from('plans').insert({
-          user_id: user.id,
-          plan_name: 'Spartan Ultra Plan',
-          start_date: format(today, 'yyyy-MM-dd'),
-          end_date: raceDateVal,
-          status: 'active',
-          athlete_profile_id: profile.id,
-          availability_profile_id: avail.id,
-          training_goal_id: goal?.id || null,
-        }).select('id').single();
-        if (!newPlan) throw new Error('Failed to create plan');
-        planId = newPlan.id;
-      }
-
-      for (const gs of generated) {
-        const { data: session } = await supabase.from('sessions').insert({
-          plan_id: planId,
-          session_date: gs.session_date,
-          title: gs.title,
-          session_type: gs.session_type,
-          primary_target: gs.primary_target,
-          notes: gs.notes,
-        }).select('id').single();
-
-        if (session && gs.steps.length > 0) {
-          await supabase.from('session_steps').insert(
-            gs.steps.map(st => ({ ...st, session_id: session.id }))
-          );
-        }
-      }
-
-      toast.success(`Generated ${generated.length} sessions`);
-      await loadData();
-    } catch (err: any) {
-      toast.error(err.message || 'Generation failed');
-    }
-    setGenerating(false);
-  }
 
   async function toggleComplete(session: Session) {
     await supabase.from('sessions').update({ completed: !session.completed }).eq('id', session.id);
@@ -183,7 +97,7 @@ export default function Dashboard() {
     <AppLayout>
       <div className="flex items-center justify-center py-32">
         <div className="flex flex-col items-center gap-3">
-          <RefreshCw className="h-5 w-5 text-primary animate-spin" />
+          <Calendar className="h-5 w-5 text-primary animate-pulse" />
           <p className="text-sm text-muted-foreground">Loading your plan...</p>
         </div>
       </div>
@@ -212,16 +126,6 @@ export default function Dashboard() {
               </p>
             )}
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleGenerate}
-            disabled={generating}
-            className="text-muted-foreground hover:text-foreground shrink-0"
-          >
-            {generating ? <RefreshCw className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Zap className="h-3.5 w-3.5 mr-1.5" />}
-            {plan ? 'Regenerate' : 'Generate'}
-          </Button>
         </motion.div>
 
         {/* Plan Overview Widget */}
